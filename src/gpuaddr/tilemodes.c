@@ -761,13 +761,13 @@ GpaError gpaGetTileInfo(
 	}
 
 	*outinfo = (GpaTileInfo){
-	    .arraymode = arraymode,
+	    .array_mode = arraymode,
 	    .banks = banks,
-	    .bankwidth = bankw,
-	    .bankheight = bankh,
-	    .macroaspectratio = macroaspect,
-	    .tilesplit = tilesplit,
-	    .pipeconfig = pipeconfig,
+	    .bank_width = bankw,
+	    .bank_height = bankh,
+	    .macro_aspect_ratio = macroaspect,
+	    .tile_split = tilesplit,
+	    .pipe_config = pipeconfig,
 	};
 	return GPA_ERR_OK;
 }
@@ -776,7 +776,7 @@ static uint32_t GetBankPipeSwizzle(
     uint32_t bankSwizzle, uint32_t pipeSwizzle, uint64_t baseAddr,
     const GpaTileInfo* tileinfo
 ) {
-	const uint32_t numPipes = gpaGetPipeCount(tileinfo->pipeconfig);
+	const uint32_t numPipes = gpaGetPipeCount(tileinfo->pipe_config);
 	const uint32_t pipeBits = QLog2(numPipes);
 	const uint32_t bankInterleaveBits = QLog2(BANK_INTERLEAVE);
 	const uint32_t tileSwizzle =
@@ -803,7 +803,7 @@ GpaError gpaComputeBaseSwizzle(
 		return err;
 	}
 
-	if (!gpaIsMacroTiled(tileinfo.arraymode)) {
+	if (!gpaIsMacroTiled(tileinfo.array_mode)) {
 		*outswizzle = 0;
 		return GPA_ERR_OK;
 	}
@@ -821,12 +821,12 @@ GpaError gpaComputeBaseSwizzle(
 	};
 
 	const uint32_t numBanks = 2 << tileinfo.banks;
-	const uint32_t numPipes = gpaGetPipeCount(tileinfo.pipeconfig);
+	const uint32_t numPipes = gpaGetPipeCount(tileinfo.pipe_config);
 
 	const uint32_t bankSwizzle =
 	    bankRotationArray[tileinfo.banks][surfindex & (numBanks - 1)];
 	uint32_t pipeswizzle = 0;
-	if (ismacrotiled3d(tileinfo.arraymode)) {
+	if (ismacrotiled3d(tileinfo.array_mode)) {
 		pipeswizzle = surfindex & (numPipes - 1);
 	}
 

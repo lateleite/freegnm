@@ -16,34 +16,34 @@ GpaError gpaFindOptimalSurface(
 	case GPA_SURFACE_COLOR:
 		break;
 	case GPA_SURFACE_DEPTHSTENCIL:
-		flags.depthtarget = 1;
-		flags.stenciltarget = 1;
+		flags.depth_target = 1;
+		flags.stencil_target = 1;
 		break;
 	case GPA_SURFACE_DEPTH:
-		flags.depthtarget = 1;
+		flags.depth_target = 1;
 		break;
 	case GPA_SURFACE_STENCIL:
-		flags.stenciltarget = 1;
+		flags.stencil_target = 1;
 		break;
 	case GPA_SURFACE_FMASK:
 		flags.fmask = 1;
 		break;
 	case GPA_SURFACE_TEXTUREFLAT:
 	case GPA_SURFACE_RWTEXTUREFLAT:
-		flags.pow2pad = mipmapped;
-		flags.texcompatible = mingpumode == GNM_GPU_NEO;
+		flags.power_of_2_pad = mipmapped;
+		flags.tc_compatible = mingpumode == GNM_GPU_NEO;
 		break;
 	case GPA_SURFACE_TEXTUREVOLUME:
 	case GPA_SURFACE_RWTEXTUREVOLUME:
 		flags.volume = 1;
-		flags.pow2pad = mipmapped;
-		flags.texcompatible = mingpumode == GNM_GPU_NEO;
+		flags.power_of_2_pad = mipmapped;
+		flags.tc_compatible = mingpumode == GNM_GPU_NEO;
 		break;
 	case GPA_SURFACE_TEXTURECUBEMAP:
 	case GPA_SURFACE_RWTEXTURECUBEMAP:
 		flags.cube = 1;
-		flags.pow2pad = mipmapped;
-		flags.texcompatible = mingpumode == GNM_GPU_NEO;
+		flags.power_of_2_pad = mipmapped;
+		flags.tc_compatible = mingpumode == GNM_GPU_NEO;
 		break;
 	default:
 		return GPA_ERR_INVALID_ARGS;
@@ -87,7 +87,7 @@ GpaError gpaFindOptimalSurface(
 	GnmMicroTileMode microtilemode = GNM_SURF_THIN_MICRO_TILING;
 	if (flags.display)
 		microtilemode = GNM_SURF_DISPLAY_MICRO_TILING;
-	else if (flags.depthtarget || flags.stenciltarget)
+	else if (flags.depth_target || flags.stencil_target)
 		microtilemode = GNM_SURF_DEPTH_MICRO_TILING;
 
 	/* Find the tile mode type */
@@ -97,9 +97,9 @@ GpaError gpaFindOptimalSurface(
 					  bpp * numfrags * MICROTILE_SIZE *
 					  MICROTILE_SIZE / 8;
 		if (mingpumode == GNM_GPU_NEO && DRAM_ROW_SIZE < tilesize) {
-			flags.texcompatible = 0;
+			flags.tc_compatible = 0;
 		}
-		if (flags.depthtarget && flags.texcompatible) {
+		if (flags.depth_target && flags.tc_compatible) {
 			switch (tilesize) {
 			case 128:
 				tilemode = GNM_TM_DEPTH_2D_THIN_128;
@@ -142,7 +142,7 @@ GpaError gpaFindOptimalSurface(
 			break;
 		}
 
-		if (flags.depthtarget && !flags.stenciltarget &&
+		if (flags.depth_target && !flags.stencil_target &&
 		    mingpumode == GNM_GPU_NEO &&
 		    tilemode < GNM_TM_DEPTH_2D_THIN_256) {
 			tilemode = GNM_TM_DEPTH_2D_THIN_256;
@@ -200,7 +200,7 @@ GpaError gpaFindOptimalSurface(
 	}
 
 	*outprops = (GpaSurfaceProperties){
-	    .tilemode = tilemode,
+	    .tile_mode = tilemode,
 	    .flags = flags,
 	};
 	return GPA_ERR_OK;

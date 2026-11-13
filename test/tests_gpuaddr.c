@@ -703,37 +703,39 @@ static TestResult test_gpuaddr_tiling_1dthin(void) {
 	const size_t surfsize = sizeof(s_detiledsurface);
 	static uint8_t tiledsurf[sizeof(s_detiledsurface)] = {0};
 
-	const GpaTilingParams srctp = {
-	    .tilemode = GNM_TM_DISPLAY_LINEAR_GENERAL,
-	    .mingpumode = GNM_GPU_BASE,
+	const GpaSurfaceDescription srctp = {
+	    .tile_mode = GNM_TM_DISPLAY_LINEAR_GENERAL,
+	    .image_format = GNM_IMG_DATA_FORMAT_8,
+	    .min_gpu_mode = GNM_GPU_BASE,
 
-	    .linearwidth = 32,
-	    .linearheight = 32,
-	    .lineardepth = 1,
-	    .numfragsperpixel = 1,
-	    .basetiledpitch = 32,
+	    .linear_width = 32,
+	    .linear_height = 32,
+	    .linear_depth = 1,
+	    .base_tiled_pitch = 32,
 
-	    .miplevel = 0,
-	    .arrayslice = 0,
-	    .bitsperfrag = 32,
-	    .surfaceflags = {0},
-	    .isblockcompressed = false,
+	    .num_frags_per_pixel = 1,
+	    .bits_per_frag = 32,
+
+	    .mip_level = 0,
+	    .array_slice = 0,
+	    .flags = {0},
 	};
-	const GpaTilingParams dst_tp = {
-	    .tilemode = GNM_TM_THIN_1D_THIN,
-	    .mingpumode = GNM_GPU_BASE,
+	const GpaSurfaceDescription dst_tp = {
+	    .tile_mode = GNM_TM_THIN_1D_THIN,
+	    .image_format = GNM_IMG_DATA_FORMAT_8,
+	    .min_gpu_mode = GNM_GPU_BASE,
 
-	    .linearwidth = 32,
-	    .linearheight = 32,
-	    .lineardepth = 1,
-	    .numfragsperpixel = 1,
-	    .basetiledpitch = 32,
+	    .linear_width = 32,
+	    .linear_height = 32,
+	    .linear_depth = 1,
+	    .base_tiled_pitch = 32,
 
-	    .miplevel = 0,
-	    .arrayslice = 0,
-	    .bitsperfrag = 32,
-	    .surfaceflags = {0},
-	    .isblockcompressed = false,
+	    .num_frags_per_pixel = 1,
+	    .bits_per_frag = 32,
+
+	    .mip_level = 0,
+	    .array_slice = 0,
+	    .flags = {0},
 	};
 
 	GpaError err = gpaTileSurface(
@@ -749,37 +751,39 @@ static TestResult test_gpuaddr_detiling_1dthin(void) {
 	const size_t surfsize = sizeof(s_tiledsurface);
 	static uint8_t detiledsurf[sizeof(s_tiledsurface)] = {0};
 
-	const GpaTilingParams srctp = {
-	    .tilemode = GNM_TM_THIN_1D_THIN,
-	    .mingpumode = GNM_GPU_BASE,
+	const GpaSurfaceDescription srctp = {
+	    .tile_mode = GNM_TM_THIN_1D_THIN,
+	    .image_format = GNM_IMG_DATA_FORMAT_8,
+	    .min_gpu_mode = GNM_GPU_BASE,
 
-	    .linearwidth = 32,
-	    .linearheight = 32,
-	    .lineardepth = 1,
-	    .numfragsperpixel = 1,
-	    .basetiledpitch = 32,
+	    .linear_width = 32,
+	    .linear_height = 32,
+	    .linear_depth = 1,
+	    .base_tiled_pitch = 32,
 
-	    .miplevel = 0,
-	    .arrayslice = 0,
-	    .bitsperfrag = 32,
-	    .surfaceflags = {0},
-	    .isblockcompressed = false,
+	    .num_frags_per_pixel = 1,
+	    .bits_per_frag = 32,
+
+	    .mip_level = 0,
+	    .array_slice = 0,
+	    .flags = {0},
 	};
-	const GpaTilingParams dst_tp = {
-	    .tilemode = GNM_TM_DISPLAY_LINEAR_GENERAL,
-	    .mingpumode = GNM_GPU_BASE,
+	const GpaSurfaceDescription dst_tp = {
+	    .tile_mode = GNM_TM_DISPLAY_LINEAR_GENERAL,
+	    .image_format = GNM_IMG_DATA_FORMAT_8,
+	    .min_gpu_mode = GNM_GPU_BASE,
 
-	    .linearwidth = 32,
-	    .linearheight = 32,
-	    .lineardepth = 1,
-	    .numfragsperpixel = 1,
-	    .basetiledpitch = 32,
+	    .linear_width = 32,
+	    .linear_height = 32,
+	    .linear_depth = 1,
+	    .base_tiled_pitch = 32,
 
-	    .miplevel = 0,
-	    .arrayslice = 0,
-	    .bitsperfrag = 32,
-	    .surfaceflags = {0},
-	    .isblockcompressed = false,
+	    .num_frags_per_pixel = 1,
+	    .bits_per_frag = 32,
+
+	    .mip_level = 0,
+	    .array_slice = 0,
+	    .flags = {0},
 	};
 
 	GpaError err = gpaTileSurface(
@@ -1237,19 +1241,19 @@ static TestResult test_gpuaddr_reformat_bc7_r8g8b8a8(void) {
 	    .depth = 1,
 	    .pitch = 8,
 
-	    .numfrags = 1,
-	    .nummips = 1,
-	    .numslices = 1,
+	    .num_frags = 1,
+	    .num_mips = 1,
+	    .num_slices = 1,
 
-	    .tm = GNM_TM_THIN_1D_THIN,
-	    .mingpumode = GNM_GPU_BASE,
+	    .tile_mode = GNM_TM_THIN_1D_THIN,
+	    .min_gpu_mode = GNM_GPU_BASE,
 	};
-	GpaTilingParams tp = {0};
-	GpaError err = gpaTpInit(&tp, &texinfo, 0, 0);
+	GpaSurfaceDescription tp = {0};
+	GpaError err = gpaSurfaceDescInit(&tp, &texinfo, 0, 0);
 	utassert(err == GPA_ERR_OK);
 
-	GpaTilingParams dst_tp = tp;
-	dst_tp.tilemode = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	GpaSurfaceDescription dst_tp = tp;
+	dst_tp.tile_mode = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	err = gpaTileSurface(
 	    detiledsurf, sizeof(detiledsurf), s_bc7surface,
@@ -1257,7 +1261,7 @@ static TestResult test_gpuaddr_reformat_bc7_r8g8b8a8(void) {
 	);
 	utassert(err == GPA_ERR_OK);
 
-	texinfo.tm = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	texinfo.tile_mode = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	static uint8_t convertedsurf[sizeof(s_rgba8surf)] = {0};
 
@@ -2834,19 +2838,19 @@ static TestResult test_gpuaddr_reformat_bc6_r16g16b16a16(void) {
 	    .depth = 1,
 	    .pitch = 16,
 
-	    .numfrags = 1,
-	    .nummips = 1,
-	    .numslices = 1,
+	    .num_frags = 1,
+	    .num_mips = 1,
+	    .num_slices = 1,
 
-	    .tm = GNM_TM_THIN_1D_THIN,
-	    .mingpumode = GNM_GPU_BASE,
+	    .tile_mode = GNM_TM_THIN_1D_THIN,
+	    .min_gpu_mode = GNM_GPU_BASE,
 	};
-	GpaTilingParams tp = {0};
-	GpaError err = gpaTpInit(&tp, &texinfo, 0, 0);
+	GpaSurfaceDescription tp = {0};
+	GpaError err = gpaSurfaceDescInit(&tp, &texinfo, 0, 0);
 	utassert(err == GPA_ERR_OK);
 
-	GpaTilingParams dst_tp = tp;
-	dst_tp.tilemode = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	GpaSurfaceDescription dst_tp = tp;
+	dst_tp.tile_mode = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	err = gpaTileSurface(
 	    detiledsurf, sizeof(detiledsurf), s_bc6surface,
@@ -2854,7 +2858,7 @@ static TestResult test_gpuaddr_reformat_bc6_r16g16b16a16(void) {
 	);
 	utassert(err == GPA_ERR_OK);
 
-	texinfo.tm = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	texinfo.tile_mode = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	static uint8_t convertedsurf[sizeof(s_rgba16surf)] = {0};
 
@@ -2878,18 +2882,18 @@ static TestResult test_gpuaddr_reformat_bc6_r16g16b16a16(void) {
 // TODO: move this somewhere else?
 static TestResult test_gpuaddr_drtbytezsize(void) {
 	const GnmDepthRenderTarget desc = {
-	    .zinfo = {.asuint = 34547},
-	    .stencilinfo = {.asuint = 537927680},
-	    .zreadbase256b = 33614080,
-	    .stencilreadbase256b = 0,
-	    .zwritebase256b = 33614080,
-	    .stencilwritebase256b = 0,
-	    .depthsize = {.asuint = 293103},
-	    .depthslice = {.asuint = 0},
-	    .depthview = {.asuint = 0},
-	    .htiledatabase256b = 0,
-	    .htilesurface = {.asuint = 0},
-	    .depthinfo = {.asuint = 1739840},
+	    .z_info = {.asuint = 34547},
+	    .stencil_info = {.asuint = 537927680},
+	    .z_read_base_256b = 33614080,
+	    .stencil_read_base_256b = 0,
+	    .z_write_base_256b = 33614080,
+	    .stencil_write_base_256b = 0,
+	    .depth_size = {.asuint = 293103},
+	    .depth_slice = {.asuint = 0},
+	    .depth_view = {.asuint = 0},
+	    .htile_database_256b = 0,
+	    .htile_surface = {.asuint = 0},
+	    .depth_info = {.asuint = 1739840},
 	    .size = {.asuint = 0},
 	};
 

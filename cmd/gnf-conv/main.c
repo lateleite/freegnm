@@ -57,9 +57,9 @@ static bool loadgnftexture(
 		return false;
 	}
 
-	GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 
-	if (texture.tilingindex != GNM_TM_DISPLAY_LINEAR_GENERAL) {
+	if (texture.tiling_index != GNM_TM_DISPLAY_LINEAR_GENERAL) {
 		const size_t detilebufsize = texsize;
 		void* detilebuf = malloc(detilebufsize);
 		assert(detilebuf);
@@ -78,14 +78,14 @@ static bool loadgnftexture(
 			return false;
 		}
 
-		texture.tilingindex = GNM_TM_DISPLAY_LINEAR_GENERAL;
-		texinfo.tm = texture.tilingindex;
+		texture.tiling_index = GNM_TM_DISPLAY_LINEAR_GENERAL;
+		texinfo.tile_mode = texture.tiling_index;
 		texbuf = detilebuf;
 		texsize = detilebufsize;
 	}
 
 	const GnmDataFormat fmt = gnmTexGetFormat(&texture);
-	if (decomp && gnmDfIsBlockCompressed(fmt)) {
+	if (decomp && gnmIsBlockCompressed(fmt.surfacefmt)) {
 		size_t decbufsize = 0;
 		GpaError gerr = gpaGetDecompressedSize(&decbufsize, &texinfo);
 		if (gerr != GPA_ERR_OK) {

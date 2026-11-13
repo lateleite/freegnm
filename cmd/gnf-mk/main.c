@@ -81,14 +81,14 @@ static void writegnf(
 
 	if (nomips) {
 		// disable mips and recalculate buffer size
-		out_tex.lastlevel = 0;
+		out_tex.last_level = 0;
 	}
 
 	GnmTileMode targetmode = GNM_TM_DISPLAY_LINEAR_ALIGNED;
 
 	if (!linear) {
 		const uint32_t bpp =
-		    gnmDfGetBitsPerElement(gnmTexGetFormat(texture));
+		    gnmGetBitsPerElement(gnmTexGetFormat(texture).surfacefmt);
 		const uint32_t numfrags = gnmTexGetNumFragments(texture);
 
 		// TODO: get gpumode dynamically?
@@ -104,12 +104,12 @@ static void writegnf(
 			);
 		}
 
-		targetmode = surfprops.tilemode;
+		targetmode = surfprops.tile_mode;
 	}
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&out_tex);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&out_tex);
 
-	out_tex.tilingindex = targetmode;
+	out_tex.tiling_index = targetmode;
 
 	uint64_t newlen = 0;
 	GnmError gerr = gnmTexCalcByteSize(&newlen, NULL, &out_tex);

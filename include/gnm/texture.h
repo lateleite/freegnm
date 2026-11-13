@@ -9,18 +9,18 @@
 
 typedef struct {
 	GnmDataFormat format;
-	GnmTextureType texturetype;
+	GnmTextureType texture_type;
 	uint32_t width;
 	uint32_t height;
 	uint32_t depth;
 	uint32_t pitch;
 
-	uint32_t nummiplevels;
-	uint32_t numslices;
-	uint32_t numfragments;
+	uint32_t num_mip_levels;
+	uint32_t num_slices;
+	uint32_t num_fragments;
 
-	GnmTileMode tilemodehint;
-	GnmGpuMode mingpumode;
+	GnmTileMode tile_mode_hint;
+	GnmGpuMode min_gpu_mode;
 } GnmTextureCreateInfo;
 
 //
@@ -29,25 +29,25 @@ typedef struct {
 typedef struct {
 	// register 0
 	// 256 byte aligned, also use for fmask-ptr.
-	uint32_t baseaddress;
+	uint32_t base_address;
 
 	// register 1
 	// NOTE: in the CI ISA, the 32-40 bits of this resource are also for the
 	// base address, but they seem to have a different purpose according to
 	// reverse engineered GNM.
 	// NOTE: 6 high bits of baseaddress are unused
-	uint32_t baseaddresshi : 6;
+	uint32_t base_address_hi : 6;
 	// values for this:
 	// 0x0 - no coherency
 	// 0x1 - GPU coherent
 	// 0x2 - System coherent
 	// 0x3 - Both GPU and System coherent
 	uint32_t mtype_l2 : 2;
-	uint32_t minlod : 12;
+	uint32_t min_lod : 12;
 	// surface format
-	GnmImageFormat dataformat : 6;
+	GnmImageFormat data_format : 6;
 	// channel type
-	GnmImgNumFormat numformat : 4;
+	GnmImgNumFormat num_format : 4;
 	// memory type, controls cache behavior
 	// if enabled, uses L1 cache LRU
 	uint32_t mtype0 : 2;
@@ -55,23 +55,23 @@ typedef struct {
 	// register 2
 	uint32_t width : 14;
 	uint32_t height : 14;
-	uint32_t perfmod : 3;
+	uint32_t perf_mod : 3;
 	uint32_t interlaced : 1;
 
 	// register 3
 	// channel X to W
-	GnmChannel dstselx : 3;	 // 0
-	GnmChannel dstsely : 3;	 // 3
-	GnmChannel dstselz : 3;	 // 6
-	GnmChannel dstselw : 3;	 // 9
+	GnmChannel dst_sel_x : 3;	 // 0
+	GnmChannel dst_sel_y : 3;	 // 3
+	GnmChannel dst_sel_z : 3;	 // 6
+	GnmChannel dst_sel_w : 3;	 // 9
 	// base mip level
-	uint32_t baselevel : 4;	 // 12
+	uint32_t base_level : 4;	 // 12
 	// last mip level, or number of fragments/samples for MSAA
-	uint32_t lastlevel : 4;	 // 16
+	uint32_t last_level : 4;	 // 16
 	// tile mode
-	GnmTileMode tilingindex : 5;  // 20
+	GnmTileMode tiling_index : 5;  // 20
 	// memory footpring is padded to pow2 dimensions
-	uint32_t pow2pad : 1;  // 25
+	uint32_t power_of_2_pad : 1;  // 25
 	// if enabled, texture is read only
 	uint32_t mtype2 : 1;	  // 26
 	uint32_t atc : 1;	  // 27
@@ -83,55 +83,51 @@ typedef struct {
 	uint32_t _unused : 5;
 
 	// register 5
-	uint32_t basearray : 13;
-	uint32_t lastarray : 13;
+	uint32_t base_array : 13;
+	uint32_t last_array : 13;
 	uint32_t _unused2 : 6;
 
 	// register 6
-	uint32_t minlodwarn : 12;    // 0
-	uint32_t counterbankid : 8;  // 12
-	uint32_t lodhdwcnten : 1;    // 20
+	uint32_t min_lod_warn : 12;    // 0
+	uint32_t counter_bank_id : 8;  // 12
+	uint32_t lod_hdw_cnt_en : 1;    // 20
 	// gfx8 only attributes
-	uint32_t compressionen : 1;   // 21
-	uint32_t alphaisonmsb : 1;    // 22
-	uint32_t colortransform : 1;  // 23
+	uint32_t compression_en : 1;   // 21
+	uint32_t alpha_is_on_msb : 1;    // 22
+	uint32_t color_transform : 1;  // 23
 	// NEO only attribute,
 	// reverse engineered and not in public registers
 	// TODO: test it on real hardware
-	uint32_t alttilemode : 1;  // 24
+	uint32_t alt_tile_mode : 1;  // 24
 	uint32_t _unused3 : 7;	   // 25
 
 	// register 7
-	uint32_t metadataaddr;
+	uint32_t metadata_addr;
 } GnmTexture;
 _Static_assert(sizeof(GnmTexture) == 0x20, "");
 
-GnmError gnmCreateTexture(
-    GnmTexture* tex, const GnmTextureCreateInfo* createinfo
-);
-
 static inline void* gnmTexGetBaseAddress(const GnmTexture* tex) {
-	return (void*)((uintptr_t)tex->baseaddress << 8);
+	return (void*)((uintptr_t)tex->base_address << 8);
 }
 void gnmTexSetBaseAddress(GnmTexture* tex, void* baseaddr);
 
 static inline GnmDataFormat gnmTexGetFormat(const GnmTexture* tex) {
 	return (GnmDataFormat){
-	    .surfacefmt = tex->dataformat,
-	    .chantype = tex->numformat,
-	    .chanx = tex->dstselx,
-	    .chany = tex->dstsely,
-	    .chanz = tex->dstselz,
-	    .chanw = tex->dstselw,
+	    .surfacefmt = tex->data_format,
+	    .chantype = tex->num_format,
+	    .chanx = tex->dst_sel_x,
+	    .chany = tex->dst_sel_y,
+	    .chanz = tex->dst_sel_z,
+	    .chanw = tex->dst_sel_w,
 	};
 }
 static inline void gnmTexSetFormat(GnmTexture* tex, GnmDataFormat df) {
-	tex->dataformat = df.surfacefmt;
-	tex->numformat = df.chantype;
-	tex->dstselx = df.chanx;
-	tex->dstsely = df.chany;
-	tex->dstselz = df.chanz;
-	tex->dstselw = df.chanw;
+	tex->data_format = df.surfacefmt;
+	tex->num_format = df.chantype;
+	tex->dst_sel_x = df.chanx;
+	tex->dst_sel_y = df.chany;
+	tex->dst_sel_z = df.chanz;
+	tex->dst_sel_w = df.chanw;
 }
 
 static inline uint32_t gnmTexGetWidth(const GnmTexture* tex) {
@@ -164,14 +160,14 @@ static inline uint32_t gnmTexGetBaseMipLevel(const GnmTexture* tex) {
 	    tex->type == GNM_TEXTURE_2D_ARRAY_MSAA) {
 		return 0;
 	}
-	return tex->baselevel;
+	return tex->base_level;
 }
 static inline uint32_t gnmTexGetLastMipLevel(const GnmTexture* tex) {
 	if (tex->type == GNM_TEXTURE_2D_MSAA ||
 	    tex->type == GNM_TEXTURE_2D_ARRAY_MSAA) {
 		return 0;
 	}
-	return tex->lastlevel;
+	return tex->last_level;
 }
 static inline uint32_t gnmTexGetNumMips(const GnmTexture* tex) {
 	return gnmTexGetLastMipLevel(tex) + 1;
@@ -187,7 +183,7 @@ uint32_t gnmTexGetNumArraySlices(const GnmTexture* tex);
 static inline uint8_t gnmTexGetNumFragments(const GnmTexture* tex) {
 	if (tex->type == GNM_TEXTURE_2D_MSAA ||
 	    tex->type == GNM_TEXTURE_2D_ARRAY_MSAA) {
-		return 1 << tex->lastlevel;
+		return 1 << tex->last_level;
 	}
 	return 1;
 }
@@ -200,22 +196,9 @@ static inline void gnmTexSetMemoryType(
 	tex->mtype2 = (memtype & GNM_MEMORY_READONLY) == GNM_MEMORY_READONLY;
 }
 
-static inline GpaTextureInfo gnmTexBuildInfo(const GnmTexture* tex) {
-	return (GpaTextureInfo){
-	    .type = tex->type,
-	    .fmt = gnmTexGetFormat(tex),
-	    .width = gnmTexGetWidth(tex),
-	    .height = gnmTexGetHeight(tex),
-	    .pitch = gnmTexGetPitch(tex),
-	    .depth = gnmTexGetDepth(tex),
-	    .numfrags = gnmTexGetNumFragments(tex),
-	    .nummips = gnmTexGetNumMips(tex),
-	    .numslices = gnmTexGetNumArraySlices(tex),
-	    .tm = tex->tilingindex,
-	    .mingpumode = tex->alttilemode ? GNM_GPU_NEO : GNM_GPU_BASE,
-	    .pow2pad = tex->pow2pad,
-	};
-}
+GnmError gnmCreateTexture(
+    GnmTexture* tex, const GnmTextureCreateInfo* createinfo
+);
 
 GnmError gnmTexCalcByteSize(
     uint64_t* outsize, uint32_t* outalignment, const GnmTexture* tex

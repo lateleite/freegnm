@@ -147,8 +147,8 @@ void gnmDrawCmdEventWriteEop(
 void gnmDrawCmdWaitGraphicsWrite(
     GnmCommandBuffer* cmd, GnmWaitGraphicsTargetMask mask
 );
-void gnmDrawCmdWaitMem(
-    GnmCommandBuffer* cmd, GnmWaitRegMemFunc op, uint64_t gpuaddr,
+void gnmDrawCmdWaitOnAddress(
+    GnmCommandBuffer* cmd, GnmWaitOperation op, uint64_t gpuaddr,
     uint32_t refval, uint32_t mask
 );
 void gnmDrawCmdWaitUntilSafeForRendering(

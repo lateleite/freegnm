@@ -709,7 +709,7 @@ pub const WaitOnAddressError = error{
 
 pub fn waitOnAddress(
     self: *Self,
-    compare_function: gnm.WaitRegFunction,
+    compare_function: gnm.WaitOperation,
     gpu_address: *anyopaque,
     mask: u32,
     reference_value: u32,
@@ -1590,7 +1590,7 @@ pub const CmdWaitRegMem = extern struct {
 
     header: pm4.Header,
     flags: packed struct(u32) {
-        function: gnm.WaitRegFunction,
+        function: gnm.WaitOperation,
         _: u1 = 0,
         mem_space: MemorySpace,
         operation: OperationType,
@@ -1877,7 +1877,7 @@ test "dcb usage" {
 
     const gpu_mode: gnm.GpuMode = .base;
     const color_fmt: gnm.DataFormat = .r8g8b8a8_srgb;
-    const surf_info = try gpa.findOptimalSurface(.color_display, color_fmt.surface.getBitSize(), 1, false, gpu_mode);
+    const surf_info = try gpa.findOptimalSurface(.color_display, color_fmt.surface.getBitsPerElement(), 1, false, gpu_mode);
 
     var rt = try gnm.RenderTarget.create(.{
         .format = color_fmt,

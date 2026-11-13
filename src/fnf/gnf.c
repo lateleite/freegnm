@@ -102,8 +102,8 @@ FnfError fnfGnfStore(
 	contents->streamsize = totalsize;
 	contents->textures[0] = *tex;
 
-	contents->textures[0].baseaddress = 0;
-	contents->textures[0].metadataaddr = texsize;
+	contents->textures[0].base_address = 0;
+	contents->textures[0].metadata_addr = texsize;
 
 	userdata->magic = GNF_USER_MAGIC;
 	userdata->datasize = userdatasize;

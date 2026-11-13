@@ -16,18 +16,18 @@ typedef struct {
 } GnmRenderTargetCreateInfoFlags;
 
 typedef struct {
-	GnmDataFormat colorfmt;
+	GnmDataFormat color_fmt;
 
 	uint32_t width;
 	uint32_t height;
 	uint32_t pitch;
-	uint32_t numslices;
+	uint32_t num_slices;
 
-	uint32_t numsamples;
-	uint32_t numfragments;
+	uint32_t num_samples;
+	uint32_t num_fragments;
 
-	GnmTileMode colortilemodehint;
-	GnmGpuMode mingpumode;
+	GnmTileMode color_tile_mode_hint;
+	GnmGpuMode min_gpu_mode;
 	GnmRenderTargetCreateInfoFlags flags;
 } GnmRenderTargetCreateInfo;
 
@@ -36,9 +36,9 @@ typedef struct {
 
 	union {
 		struct {
-			uint32_t tilemax : 11;
+			uint32_t tile_max : 11;
 			uint32_t _unused : 9;
-			uint32_t fmask_tilemax : 11;
+			uint32_t fmask_tile_max : 11;
 			uint32_t _unused2 : 1;
 		};
 		uint32_t asuint;
@@ -46,7 +46,7 @@ typedef struct {
 
 	union {
 		struct {
-			uint32_t tilemax : 22;
+			uint32_t tile_max : 22;
 			uint32_t _unused : 10;
 		};
 		uint32_t asuint;
@@ -54,9 +54,9 @@ typedef struct {
 
 	union {
 		struct {
-			uint32_t slicestart : 11;
+			uint32_t slice_start : 11;
 			uint32_t _unused : 2;
-			uint32_t slicemax : 11;
+			uint32_t slice_max : 11;
 			uint32_t _unused2 : 8;
 		};
 		uint32_t asuint;
@@ -70,8 +70,8 @@ typedef struct {
 
 			uint32_t _unused2 : 1;	// 7
 
-			GnmSurfaceNumber channeltype : 3;  // 8
-			GnmSurfaceSwap channelorder : 2;   // 11
+			GnmSurfaceNumber channel_type : 3;  // 8
+			GnmSurfaceSwap channel_order : 2;   // 11
 			uint32_t fast_clear : 1;	   // 13
 			uint32_t compression : 1;	   // 14
 			uint32_t is_normalized : 1;	   // 15
@@ -94,8 +94,8 @@ typedef struct {
 
 	union {
 		struct {
-			GnmTileMode tilemode_index : 5;
-			GnmTileMode fmask_tilemode_index : 5;
+			GnmTileMode tile_mode_index : 5;
+			GnmTileMode fmask_tile_mode_index : 5;
 			uint32_t _unused : 2;
 			uint32_t num_samples : 3;
 			uint32_t num_fragments : 2;
@@ -122,7 +122,7 @@ typedef struct {
 	uint32_t cmask_base256b;  // register 7
 	union {
 		struct {
-			uint32_t tilemax : 14;
+			uint32_t tile_max : 14;
 			uint32_t _unused : 18;
 		};
 		uint32_t asuint;
@@ -131,7 +131,7 @@ typedef struct {
 	uint32_t fmask_base256b;  // register 9
 	union {
 		struct {
-			uint32_t tilemax : 22;
+			uint32_t tile_max : 22;
 			uint32_t _unused : 10;
 		};
 		uint32_t asuint;
@@ -154,12 +154,6 @@ typedef struct {
 } GnmRenderTarget;
 _Static_assert(sizeof(GnmRenderTarget) == 0x40, "");
 
-GnmError gnmCreateRenderTarget(
-    GnmRenderTarget* rt, const GnmRenderTargetCreateInfo* createinfo
-);
-
-GnmDataFormat gnmRtGetFormat(const GnmRenderTarget* rt);
-
 static inline void* gnmRtGetBaseAddr(const GnmRenderTarget* rt) {
 	return (void*)((uintptr_t)rt->base_base256b << 8);
 }
@@ -168,13 +162,13 @@ static inline void gnmRtSetBaseAddr(GnmRenderTarget* rt, void* baseaddr) {
 }
 
 static inline uint32_t gnmRtGetPitch(const GnmRenderTarget* rt) {
-	return (rt->pitch.tilemax + 1) * 8;
+	return (rt->pitch.tile_max + 1) * 8;
 }
 static inline uint32_t gnmRtGetSliceSize(const GnmRenderTarget* rt) {
-	return (rt->slice.tilemax + 1) * 64 / gnmRtGetPitch(rt);
+	return (rt->slice.tile_max + 1) * 64 / gnmRtGetPitch(rt);
 }
 static inline uint32_t gnmRtGetNumSlices(const GnmRenderTarget* rt) {
-	return rt->view.slicemax + 1;
+	return rt->view.slice_max + 1;
 }
 
 static inline uint8_t gnmRtGetNumSamples(const GnmRenderTarget* rt) {
@@ -184,22 +178,11 @@ static inline uint8_t gnmRtGetNumFragments(const GnmRenderTarget* rt) {
 	return 1 << rt->attrib.num_fragments;
 }
 
-static inline GpaTextureInfo gnmRtBuildInfo(const GnmRenderTarget* rt) {
-	return (GpaTextureInfo){
-	    .type = GNM_TEXTURE_2D,
-	    .fmt = gnmRtGetFormat(rt),
-	    .width = gnmRtGetPitch(rt),
-	    .height = gnmRtGetSliceSize(rt),
-	    .pitch = gnmRtGetPitch(rt),
-	    .depth = 1,
-	    .numfrags = gnmRtGetNumFragments(rt),
-	    .nummips = 1,
-	    .numslices = 1,
-	    .tm = rt->attrib.tilemode_index,
-	    .mingpumode = rt->info.alt_tile_mode ? GNM_GPU_NEO : GNM_GPU_BASE,
-	    .pow2pad = false,
-	};
-}
+GnmError gnmCreateRenderTarget(
+    GnmRenderTarget* rt, const GnmRenderTargetCreateInfo* createinfo
+);
+
+GnmDataFormat gnmRtGetFormat(const GnmRenderTarget* rt);
 
 GnmError gnmRtCalcByteSize(
     uint64_t* outsize, uint32_t* outalign, const GnmRenderTarget* rt

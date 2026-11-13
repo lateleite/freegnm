@@ -481,19 +481,19 @@ pub const Operand = extern struct {
         vgpr_255 = 511,
 
         pub fn toSgprIndex(self: Field) ?u8 {
-            const self_uint: c_uint = @intFromEnum(self);
-            if (self_uint < @intFromEnum(Field.sgpr_0) or
-                self_uint > @intFromEnum(Field.sgpr_103))
+            const self_uint: c_uint = @backingInt(self);
+            if (self_uint < @backingInt(Field.sgpr_0) or
+                self_uint > @backingInt(Field.sgpr_103))
                 return null;
-            return @truncate(self_uint - @intFromEnum(Field.sgpr_0));
+            return @truncate(self_uint - @backingInt(Field.sgpr_0));
         }
 
         pub fn toVgprIndex(self: Field) ?u8 {
-            const self_uint: c_uint = @intFromEnum(self);
-            if (self_uint < @intFromEnum(Field.vgpr_0) or
-                self_uint > @intFromEnum(Field.vgpr_255))
+            const self_uint: c_uint = @backingInt(self);
+            if (self_uint < @backingInt(Field.vgpr_0) or
+                self_uint > @backingInt(Field.vgpr_255))
                 return null;
-            return @truncate(self_uint - @intFromEnum(Field.vgpr_0));
+            return @truncate(self_uint - @backingInt(Field.vgpr_0));
         }
     };
 
@@ -664,27 +664,27 @@ pub const Instruction = extern struct {
             param_31 = 63,
 
             pub fn toMrtIndex(self: Target) ?u3 {
-                const self_uint: c_uint = @intFromEnum(self);
-                if (self_uint < @intFromEnum(Target.mrt_0) or
-                    self_uint > @intFromEnum(Target.mrt_7))
+                const self_uint: c_uint = @backingInt(self);
+                if (self_uint < @backingInt(Target.mrt_0) or
+                    self_uint > @backingInt(Target.mrt_7))
                     return null;
-                return @truncate(self_uint - @intFromEnum(Target.mrt_0));
+                return @truncate(self_uint - @backingInt(Target.mrt_0));
             }
 
             pub fn toPosIndex(self: Target) ?u2 {
-                const self_uint: c_uint = @intFromEnum(self);
-                if (self_uint < @intFromEnum(Target.pos_0) or
-                    self_uint > @intFromEnum(Target.pos_3))
+                const self_uint: c_uint = @backingInt(self);
+                if (self_uint < @backingInt(Target.pos_0) or
+                    self_uint > @backingInt(Target.pos_3))
                     return null;
-                return @truncate(self_uint - @intFromEnum(Target.pos_0));
+                return @truncate(self_uint - @backingInt(Target.pos_0));
             }
 
             pub fn toParamIndex(self: Target) ?u5 {
-                const self_uint: c_uint = @intFromEnum(self);
-                if (self_uint < @intFromEnum(Target.param_0) or
-                    self_uint > @intFromEnum(Target.param_31))
+                const self_uint: c_uint = @backingInt(self);
+                if (self_uint < @backingInt(Target.param_0) or
+                    self_uint > @backingInt(Target.param_31))
                     return null;
-                return @truncate(self_uint - @intFromEnum(Target.param_0));
+                return @truncate(self_uint - @backingInt(Target.param_0));
             }
         };
 
@@ -1073,7 +1073,7 @@ pub const Decoder = struct {
     ctx: c.GcnDecoderContext,
 
     pub fn init(gcn_code: []const u32) Decoder {
-        var ctx: c.GcnDecoderContext = .{};
+        var ctx: c.GcnDecoderContext = undefined;
         const err = c.gcnDecoderInit(&ctx, @ptrCast(gcn_code.ptr), @intCast(gcn_code.len * @sizeOf(u32)));
         switch (err) {
             c.GCN_ERR_OK => {},

@@ -472,7 +472,7 @@ static TestResult test_gnf_to_ktx_rgba8(void) {
 	void* detilebuf = malloc(detilebufsize);
 	utassert(detilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    texbuf, texsize, detilebuf, detilebufsize, &texinfo,
 	    GNM_TM_DISPLAY_LINEAR_GENERAL
@@ -480,7 +480,7 @@ static TestResult test_gnf_to_ktx_rgba8(void) {
 	free(texbuf);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	texture.tiling_index = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	void* ktxbuf = NULL;
 	size_t ktxsize = 0;
@@ -509,13 +509,13 @@ static TestResult test_ktx_to_gnf_rgba8(void) {
 	void* tilebuf = malloc(tilebufsize);
 	utassert(tilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    texbuf, texsize, tilebuf, tilebufsize, &texinfo, GNM_TM_THIN_1D_THIN
 	);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_THIN_1D_THIN;
+	texture.tiling_index = GNM_TM_THIN_1D_THIN;
 
 	void* gnfbuf = NULL;
 	size_t gnfsize = 0;
@@ -544,7 +544,7 @@ static TestResult test_gnf_to_ktx_bc3(void) {
 	void* detilebuf = malloc(detilebufsize);
 	utassert(detilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    texbuf, texsize, detilebuf, detilebufsize, &texinfo,
 	    GNM_TM_DISPLAY_LINEAR_GENERAL
@@ -552,7 +552,7 @@ static TestResult test_gnf_to_ktx_bc3(void) {
 	free(texbuf);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	texture.tiling_index = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	void* ktxbuf = NULL;
 	size_t ktxsize = 0;
@@ -581,13 +581,13 @@ static TestResult test_ktx_to_gnf_bc3(void) {
 	void* tilebuf = malloc(tilebufsize);
 	utassert(tilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    texbuf, texsize, tilebuf, tilebufsize, &texinfo, GNM_TM_THIN_1D_THIN
 	);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_THIN_1D_THIN;
+	texture.tiling_index = GNM_TM_THIN_1D_THIN;
 
 	void* gnfbuf = NULL;
 	size_t gnfsize = 0;

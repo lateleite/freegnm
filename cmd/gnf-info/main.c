@@ -104,12 +104,12 @@ int main(int argc, char* argv[]) {
 	);
 	printf("Dimensions: %ux%ux%u\n", width, height, depth);
 	printf("Pitch: %u\n", pitch);
-	printf("Tiling mode: %s\n", gnmStrTileMode(tex.tilingindex));
+	printf("Tiling mode: %s\n", gnmStrTileMode(tex.tiling_index));
 	printf("Faces: %u\n", numfaces);
 	printf("Fragments: %u\n", numfrags);
 	printf("Mips: %u\n", num_mips);
 	printf("Array slices: %u\n", numslices);
-	printf("Power of 2 pad: %u\n", tex.pow2pad);
+	printf("Power of 2 pad: %u\n", tex.power_of_2_pad);
 
 	free(texbuf);
 	return EXIT_SUCCESS;

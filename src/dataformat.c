@@ -1,120 +1,21 @@
 #include "gnm/dataformat.h"
 
-#include <stdlib.h>
-
-GnmDataFormat gnmDfInitFromFmask(uint32_t numsamples, uint32_t numfrags) {
-	GnmDataFormat res = {
-	    .surfacefmt = GNM_IMG_DATA_FORMAT_INVALID,
-	    .chantype = GNM_IMG_NUM_FORMAT_UNORM,
-	    .chanx = GNM_CHAN_X,
-	    .chany = GNM_CHAN_X,
-	    .chanz = GNM_CHAN_CONSTANT0,
-	    .chanw = GNM_CHAN_CONSTANT1,
-	};
-
-	switch (numsamples) {
-	case 1:
-		// invalid
-		break;
-	case 2:
-		switch (numfrags) {
-		case 1:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK8_S2_F1;
-			break;
-		case 2:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK8_S2_F2;
-			break;
-		case 4:
-		case 8:
-			// invalid
-			break;
-		default:
-			abort();
-		}
-		break;
-	case 4:
-		switch (numfrags) {
-		case 1:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK8_S4_F1;
-			break;
-		case 2:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK8_S4_F2;
-			break;
-		case 4:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK8_S4_F4;
-			break;
-		case 8:
-			// invalid
-			break;
-		default:
-			abort();
-		}
-		break;
-	case 8:
-		switch (numfrags) {
-		case 1:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK8_S8_F1;
-			break;
-		case 2:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK16_S8_F2;
-			break;
-		case 4:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK32_S8_F4;
-			break;
-		case 8:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK32_S8_F8;
-			break;
-		default:
-			abort();
-		}
-		break;
-	case 16:
-		switch (numfrags) {
-		case 1:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK16_S16_F1;
-			break;
-		case 2:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK32_S16_F2;
-			break;
-		case 4:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK64_S16_F4;
-			break;
-		case 8:
-			res.surfacefmt = GNM_IMG_DATA_FORMAT_FMASK64_S16_F8;
-			break;
-		default:
-			abort();
-		}
-		break;
-	default:
-		// TODO: error out instead
-		abort();
-	}
-
-	if (numsamples == 16) {
-		res.chany = GNM_CHAN_Y;
-		res.chanz = GNM_CHAN_CONSTANT1;
-	}
-
-	return res;
-}
-
 GnmDataFormat gnmDfInitFromZ(GnmZFormat zfmt) {
-	GnmImageFormat surfmt = GNM_IMG_DATA_FORMAT_INVALID;
-	GnmImgNumFormat chantype = GNM_IMG_NUM_FORMAT_UNORM;
+	GnmImageFormat surfmt;
+	GnmImgNumFormat chantype;
 	switch (zfmt) {
-	case GNM_Z_INVALID:
-	default:
-		// surfmt = GNM_IMG_DATA_FORMAT_INVALID;
-		//  chantype = GNM_IMG_NUM_FORMAT_UNORM;
-		break;
 	case GNM_Z_16:
 		surfmt = GNM_IMG_DATA_FORMAT_16;
-		// chantype = GNM_IMG_NUM_FORMAT_UNORM;
+		chantype = GNM_IMG_NUM_FORMAT_UNORM;
 		break;
 	case GNM_Z_32_FLOAT:
 		surfmt = GNM_IMG_DATA_FORMAT_32;
 		chantype = GNM_IMG_NUM_FORMAT_FLOAT;
+		break;
+	case GNM_Z_INVALID:
+	default:
+		surfmt = GNM_IMG_DATA_FORMAT_INVALID;
+		chantype = GNM_IMG_NUM_FORMAT_UNORM;
 		break;
 	}
 
@@ -131,8 +32,6 @@ GnmDataFormat gnmDfInitFromZ(GnmZFormat zfmt) {
 
 uint32_t gnmDfGetNumComponents(const GnmDataFormat datafmt) {
 	switch (datafmt.surfacefmt) {
-	case GNM_IMG_DATA_FORMAT_INVALID:
-		return 0;
 	case GNM_IMG_DATA_FORMAT_8:
 	case GNM_IMG_DATA_FORMAT_16:
 	case GNM_IMG_DATA_FORMAT_32:
@@ -185,15 +84,14 @@ uint32_t gnmDfGetNumComponents(const GnmDataFormat datafmt) {
 	case GNM_IMG_DATA_FORMAT_BC3:
 	case GNM_IMG_DATA_FORMAT_BC7:
 		return 4;
+	case GNM_IMG_DATA_FORMAT_INVALID:
 	default:
-		abort();
+		return 0;
 	}
 }
 
-uint32_t gnmDfGetBitsPerElement(const GnmDataFormat datafmt) {
-	switch (datafmt.surfacefmt) {
-	case GNM_IMG_DATA_FORMAT_INVALID:
-		return 0;
+uint8_t gnmGetBitsPerElement(const GnmImageFormat image_format) {
+	switch (image_format) {
 	case GNM_IMG_DATA_FORMAT_8:
 		return 8;
 	case GNM_IMG_DATA_FORMAT_16:
@@ -264,8 +162,9 @@ uint32_t gnmDfGetBitsPerElement(const GnmDataFormat datafmt) {
 	case GNM_IMG_DATA_FORMAT_1:
 	case GNM_IMG_DATA_FORMAT_1_REVERSED:
 		return 1;
+	case GNM_IMG_DATA_FORMAT_INVALID:
 	default:
-		abort();
+		return 0;
 	}
 }
 
@@ -334,13 +233,19 @@ bool gnmDfGetRtChannelOrder(const GnmDataFormat datafmt, GnmSurfaceSwap* out) {
 		if (cx == GNM_CHAN_X && cy == GNM_CHAN_Y && cz == GNM_CHAN_Z) {
 			*out = GNM_SWAP_STD;
 			return true;
-		} else if (cx == GNM_CHAN_X && cy == GNM_CHAN_Y && cw == GNM_CHAN_Z) {
+		} else if (
+		    cx == GNM_CHAN_X && cy == GNM_CHAN_Y && cw == GNM_CHAN_Z
+		) {
 			*out = GNM_SWAP_ALT;
 			return true;
-		} else if (cx == GNM_CHAN_Z && cy == GNM_CHAN_Y && cz == GNM_CHAN_X) {
+		} else if (
+		    cx == GNM_CHAN_Z && cy == GNM_CHAN_Y && cz == GNM_CHAN_X
+		) {
 			*out = GNM_SWAP_STD_REV;
 			return true;
-		} else if (cx == GNM_CHAN_Z && cy == GNM_CHAN_Y && cw == GNM_CHAN_X) {
+		} else if (
+		    cx == GNM_CHAN_Z && cy == GNM_CHAN_Y && cw == GNM_CHAN_X
+		) {
 			*out = GNM_SWAP_ALT_REV;
 			return true;
 		}
@@ -349,13 +254,22 @@ bool gnmDfGetRtChannelOrder(const GnmDataFormat datafmt, GnmSurfaceSwap* out) {
 		    cw == GNM_CHAN_W) {
 			*out = GNM_SWAP_STD;
 			return true;
-		} else if (cx == GNM_CHAN_Z && cy == GNM_CHAN_Y && cz == GNM_CHAN_X && cw == GNM_CHAN_W) {
+		} else if (
+		    cx == GNM_CHAN_Z && cy == GNM_CHAN_Y && cz == GNM_CHAN_X &&
+		    cw == GNM_CHAN_W
+		) {
 			*out = GNM_SWAP_ALT;
 			return true;
-		} else if (cx == GNM_CHAN_W && cy == GNM_CHAN_Z && cz == GNM_CHAN_Y && cw == GNM_CHAN_X) {
+		} else if (
+		    cx == GNM_CHAN_W && cy == GNM_CHAN_Z && cz == GNM_CHAN_Y &&
+		    cw == GNM_CHAN_X
+		) {
 			*out = GNM_SWAP_STD_REV;
 			return true;
-		} else if (cx == GNM_CHAN_Y && cy == GNM_CHAN_Z && cz == GNM_CHAN_W && cw == GNM_CHAN_X) {
+		} else if (
+		    cx == GNM_CHAN_Y && cy == GNM_CHAN_Z && cz == GNM_CHAN_W &&
+		    cw == GNM_CHAN_X
+		) {
 			*out = GNM_SWAP_ALT_REV;
 			return true;
 		}

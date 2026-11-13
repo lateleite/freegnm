@@ -906,14 +906,14 @@ export fn gnmDrawCmdWaitGraphicsWrite(
     cmd.cur_dword = dcb.writer.current_dword;
 }
 
-export fn gnmDrawCmdWaitMem(
+export fn gnmDrawCmdWaitOnAddress(
     cmd: *CommandBuffer,
     compare_function: c_int,
     gpu_address: ?*anyopaque,
     reference_value: u32,
     mask: u32,
 ) callconv(.c) void {
-    const cast_func = toWaitRegFunction(compare_function) orelse {
+    const cast_func = toWaitOperation(compare_function) orelse {
         writeDebugMsg(.err, "waitOnAddress's compare function value {} is invalid!", .{
             compare_function,
         });
@@ -1130,7 +1130,7 @@ pub fn toShaderStage(value: c_int) ?gnm.ShaderStage {
     };
 }
 
-pub fn toWaitRegFunction(value: c_int) ?gnm.WaitRegFunction {
+pub fn toWaitOperation(value: c_int) ?gnm.WaitOperation {
     return switch (value) {
         else => null,
         0 => .always,

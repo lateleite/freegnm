@@ -3,13 +3,13 @@
 #include <math.h>
 
 static inline void ComputeMipLevel(
-    uint32_t* outwidth, uint32_t* outheight, const GpaTilingParams* params
+    uint32_t* outwidth, uint32_t* outheight, const GpaSurfaceDescription* params
 ) {
-	uint32_t width = params->linearwidth;
-	uint32_t height = params->linearheight;
+	uint32_t width = params->linear_width;
+	uint32_t height = params->linear_height;
 
-	if (params->isblockcompressed) {
-		if (params->miplevel == 0) {
+	if (gnmIsBlockCompressed(params->image_format)) {
+		if (params->mip_level == 0) {
 			// DXTn's level 0 must be multiple of 4
 			// But there are exceptions:
 			// 1. Internal surface creation in hostblt/vsblt/etc...
@@ -22,8 +22,8 @@ static inline void ComputeMipLevel(
 
 	// basePitch is calculated from level 0 so we only check this
 	// for mipLevel > 0
-	if (params->miplevel > 0 && params->basetiledpitch != 0) {
-		width = umax(1u, params->basetiledpitch >> params->miplevel);
+	if (params->mip_level > 0 && params->base_tiled_pitch != 0) {
+		width = umax(1u, params->base_tiled_pitch >> params->mip_level);
 	}
 
 	// pow2Pad is done in PostComputeMipLevel
@@ -117,9 +117,9 @@ static GpaError HwlReduceBankWidthHeight(
 	uint32_t macroAspectAlign;
 	bool valid = true;
 
-	uint32_t bankWidth = (1 << pTileInfo->bankwidth);
-	uint32_t bankHeight = (1 << pTileInfo->bankheight);
-	uint32_t macroAspectRatio = (1 << pTileInfo->macroaspectratio);
+	uint32_t bankWidth = (1 << pTileInfo->bank_width);
+	uint32_t bankHeight = (1 << pTileInfo->bank_height);
+	uint32_t macroAspectRatio = (1 << pTileInfo->macro_aspect_ratio);
 
 	if (tileSize * bankWidth * bankHeight > DRAM_ROW_SIZE) {
 		bool stillGreater = true;
@@ -166,7 +166,7 @@ static GpaError HwlReduceBankWidthHeight(
 
 		// Early quit bank_height degradation for "64" bit z
 		// buffer
-		if (flags.depthtarget && bpp >= 64) {
+		if (flags.depth_target && bpp >= 64) {
 			stillGreater = false;
 		}
 
@@ -208,18 +208,18 @@ static GpaError ComputeSurfaceAlignmentsMacroTiled(
 	uint32_t macroAspectAlign;
 
 	uint32_t thickness = gpaGetMicroTileThickness(tileMode);
-	uint32_t pipes = gpaGetPipeCount(pOut->tileinfo.pipeconfig);
+	uint32_t pipes = gpaGetPipeCount(pOut->tile_info.pipe_config);
 
 	//
 	// Align bank height first according to latest h/w spec
 	//
 
-	const uint32_t banks = 2 << pOut->tileinfo.banks;
-	const uint32_t bankWidth = (1 << pOut->tileinfo.bankwidth);
-	uint32_t bankHeight = (1 << pOut->tileinfo.bankheight);
-	uint32_t macroAspectRatio = (1 << pOut->tileinfo.macroaspectratio);
+	const uint32_t banks = 2 << pOut->tile_info.banks;
+	const uint32_t bankWidth = (1 << pOut->tile_info.bank_width);
+	uint32_t bankHeight = (1 << pOut->tile_info.bank_height);
+	uint32_t macroAspectRatio = (1 << pOut->tile_info.macro_aspect_ratio);
 	const uint32_t tileSplitBytes =
-	    GetTileSplitBytes(pOut->tileinfo.tilesplit, bpp, thickness);
+	    GetTileSplitBytes(pOut->tile_info.tile_split, bpp, thickness);
 
 	// tile_size = MIN(tile_split, 64 * tile_thickness *
 	// element_bytes * num_samples)
@@ -252,7 +252,7 @@ static GpaError ComputeSurfaceAlignmentsMacroTiled(
 	// Sony's library ignores any failure, so do the same
 	GpaError err = HwlReduceBankWidthHeight(
 	    tileSize, bpp, flags, numSamples, bankHeightAlign, pipes,
-	    &pOut->tileinfo
+	    &pOut->tile_info
 	);
 	if (err != GPA_ERR_OK) {
 		return err;
@@ -264,10 +264,10 @@ static GpaError ComputeSurfaceAlignmentsMacroTiled(
 	//
 	macroTileWidth = MicroTileWidth * bankWidth * pipes * macroAspectRatio;
 
-	pOut->pitchalign = macroTileWidth;
-	pOut->blockwidth = macroTileWidth;
+	pOut->pitch_align = macroTileWidth;
+	pOut->block_width = macroTileWidth;
 
-	AdjustPitchAlignment(flags, &pOut->pitchalign);
+	AdjustPitchAlignment(flags, &pOut->pitch_align);
 
 	//
 	// The required granularity for height is the macro tile
@@ -276,17 +276,18 @@ static GpaError ComputeSurfaceAlignmentsMacroTiled(
 	macroTileHeight =
 	    MicroTileHeight * bankHeight * banks / macroAspectRatio;
 
-	pOut->heightalign = macroTileHeight;
-	pOut->blockheight = macroTileHeight;
+	pOut->height_align = macroTileHeight;
+	pOut->block_height = macroTileHeight;
 
 	//
 	// Compute base alignment
 	//
-	pOut->basealign = pipes * bankWidth * banks * bankHeight * tileSize;
+	pOut->base_align = pipes * bankWidth * banks * bankHeight * tileSize;
 
 	if ((mipLevel == 0) && (flags.prt)) {
-		uint32_t macroTileSize =
-		    pOut->blockwidth * pOut->blockheight * numSamples * bpp / 8;
+		uint32_t macroTileSize = pOut->block_width *
+					 pOut->block_height * numSamples * bpp /
+					 8;
 
 		if (macroTileSize < PrtTileSize) {
 			uint32_t numMacroTiles = PrtTileSize / macroTileSize;
@@ -295,8 +296,8 @@ static GpaError ComputeSurfaceAlignmentsMacroTiled(
 				return GPA_ERR_INTERNAL_ERROR;
 			}
 
-			pOut->pitchalign *= numMacroTiles;
-			pOut->basealign *= numMacroTiles;
+			pOut->pitch_align *= numMacroTiles;
+			pOut->base_align *= numMacroTiles;
 		}
 	}
 
@@ -373,7 +374,7 @@ static GpaError PadDimensions(
 		// for cubemap single face, we do not pad slices.
 		// if we pad it, the slice number should be set to 6 and
 		// current mip level > 1
-		if (flags.cube && flags.cubeasarray) {
+		if (flags.cube && flags.cube_as_array) {
 			*pSlices = NextPow2(*pSlices);
 		}
 
@@ -387,14 +388,14 @@ static GpaError PadDimensions(
 	if (mingpumode == GNM_GPU_NEO && (numSamples > 1) && (mipLevel == 0) &&
 	    gpaIsMacroTiled(arrayMode)) {
 		const uint32_t tileSplitBytes =
-		    GetTileSplitBytes(pTileInfo->tilesplit, bpp, thickness);
+		    GetTileSplitBytes(pTileInfo->tile_split, bpp, thickness);
 		uint32_t tileSizePerSample =
 		    BitsToBytes32(bpp * MicroTileWidth * MicroTileHeight);
 		uint32_t samplesPerSplit = tileSplitBytes / tileSizePerSample;
 
 		if (samplesPerSplit < numSamples) {
 			uint32_t dccFastClearByteAlign =
-			    gpaGetPipeCount(pTileInfo->pipeconfig) *
+			    gpaGetPipeCount(pTileInfo->pipe_config) *
 			    PIPE_INTERLEAVE_BYTES * 256;
 			uint32_t bytesPerSplit = BitsToBytes32(
 			    (*pPitch) * (*pHeight) * bpp * samplesPerSplit
@@ -429,8 +430,7 @@ static GpaError PadDimensions(
 					    (dccFastClearPitchAlignInMacroTile >
 					     1) &&
 					    ((dccFastClearPitchAlignInMacroTile %
-					      2) == 0)
-					) {
+					      2) == 0)) {
 						heightInMacroTile >>= 1;
 						dccFastClearPitchAlignInMacroTile >>=
 						    1;
@@ -545,49 +545,49 @@ static uint64_t HwlGetSizeAdjustmentMicroTiled(
 }
 
 static GpaError ComputeSurfaceInfoLinear(
-    const GpaTilingParams* params,  ///< [in] Input structure
-    GpaSurfaceInfo* out,	    ///< [out] Output structure
-    uint32_t padDims		    ///< [in] Dimensions to padd
+    const GpaSurfaceDescription* params,  ///< [in] Input structure
+    GpaSurfaceInfo* out,		  ///< [out] Output structure
+    uint32_t padDims			  ///< [in] Dimensions to padd
 ) {
-	uint32_t expPitch = params->linearwidth;
-	uint32_t expHeight = params->linearheight;
-	uint32_t expNumSlices = params->lineardepth;
+	uint32_t expPitch = params->linear_width;
+	uint32_t expHeight = params->linear_height;
+	uint32_t expNumSlices = params->linear_depth;
 
 	// No linear MSAA on real H/W, keep this for TGL
-	uint32_t numSamples = params->numfragsperpixel;
+	uint32_t numSamples = params->num_frags_per_pixel;
 
 	const uint32_t microTileThickness = 1;
-	const GnmArrayMode arrayMode = gpaGetArrayMode(params->tilemode);
+	const GnmArrayMode arrayMode = gpaGetArrayMode(params->tile_mode);
 
 	//
 	// Compute the surface alignments.
 	//
 	ComputeSurfaceAlignmentsLinear(
-	    arrayMode, params->bitsperfrag, params->surfaceflags,
-	    &out->basealign, &out->pitchalign, &out->heightalign
+	    arrayMode, params->bits_per_frag, params->flags, &out->base_align,
+	    &out->pitch_align, &out->height_align
 	);
 
 	if (arrayMode == GNM_ARRAY_LINEAR_GENERAL &&
-	    params->surfaceflags.colortarget && (params->linearheight > 1)) {
+	    params->flags.color_target && (params->linear_height > 1)) {
 		// When linear_general surface is accessed in multiple
 		// lines, it requires 8 pixels in pitch alignment since
 		// PITCH_TILE_MAX is in unit of 8 pixels. It is OK if it
 		// is accessed per line.
-		if ((params->linearwidth % 8) != 0) {
+		if ((params->linear_width % 8) != 0) {
 			return GPA_ERR_INTERNAL_ERROR;
 		}
 	}
 
-	out->depthalign = microTileThickness;
+	out->depth_align = microTileThickness;
 
 	//
 	// Pad pitch and height to the required granularities.
 	//
 	GpaError err = PadDimensions(
-	    arrayMode, params->bitsperfrag, params->surfaceflags, numSamples,
-	    &out->tileinfo, padDims, params->miplevel, &expPitch,
-	    &out->pitchalign, &expHeight, out->heightalign, &expNumSlices,
-	    microTileThickness, params->mingpumode
+	    arrayMode, params->bits_per_frag, params->flags, numSamples,
+	    &out->tile_info, padDims, params->mip_level, &expPitch,
+	    &out->pitch_align, &expHeight, out->height_align, &expNumSlices,
+	    microTileThickness, params->min_gpu_mode
 	);
 	if (err != GPA_ERR_OK) {
 		return err;
@@ -598,17 +598,17 @@ static GpaError ComputeSurfaceInfoLinear(
 	//
 
 	uint64_t logicalSliceSize = HwlGetSizeAdjustmentLinear(
-	    arrayMode, params->bitsperfrag, numSamples, out->pitchalign,
-	    &expPitch, &expHeight, &out->heightalign
+	    arrayMode, params->bits_per_frag, numSamples, out->pitch_align,
+	    &expPitch, &expHeight, &out->height_align
 	);
 
 	out->pitch = expPitch;
 	out->height = expHeight;
 	out->depth = expNumSlices;
 
-	out->surfacesize = logicalSliceSize * expNumSlices;
+	out->surface_byte_size = logicalSliceSize * expNumSlices;
 
-	out->tilemode = params->tilemode;
+	out->tile_mode = params->tile_mode;
 
 	return GPA_ERR_OK;
 }
@@ -701,17 +701,17 @@ static GnmArrayMode ComputeSurfaceMipLevelTileMode(
 		);
 	}
 
-	const uint32_t bankWidth = (1 << pTileInfo->bankwidth);
-	const uint32_t bankHeight = (1 << pTileInfo->bankheight);
-	const uint32_t macroAspectRatio = (1 << pTileInfo->macroaspectratio);
+	const uint32_t bankWidth = (1 << pTileInfo->bank_width);
+	const uint32_t bankHeight = (1 << pTileInfo->bank_height);
+	const uint32_t macroAspectRatio = (1 << pTileInfo->macro_aspect_ratio);
 	const uint32_t tileSplitBytes =
-	    GetTileSplitBytes(pTileInfo->tilesplit, bpp, microTileThickness);
+	    GetTileSplitBytes(pTileInfo->tile_split, bpp, microTileThickness);
 	if (bytesPerTile > tileSplitBytes) {
 		bytesPerTile = tileSplitBytes;
 	}
 
 	uint32_t threshold1 = bytesPerTile *
-			      gpaGetPipeCount(pTileInfo->pipeconfig) *
+			      gpaGetPipeCount(pTileInfo->pipe_config) *
 			      bankWidth * macroAspectRatio;
 
 	uint32_t threshold2 = bytesPerTile * bankWidth * bankHeight;
@@ -750,18 +750,18 @@ static GnmArrayMode ComputeSurfaceMipLevelTileMode(
 }
 
 static GpaError ComputeSurfaceInfoMicroTiled(
-    const GpaTilingParams* pIn,	 ///< [in] Input structure
-    GpaSurfaceInfo* pOut,	 ///< [out] Output structure
-    uint32_t padDims,		 ///< [in] Dimensions to padd
-    GnmArrayMode expTileMode	 ///< [in] Expected tile mode
+    const GpaSurfaceDescription* pIn,  ///< [in] Input structure
+    GpaSurfaceInfo* pOut,	       ///< [out] Output structure
+    uint32_t padDims,		       ///< [in] Dimensions to padd
+    GnmArrayMode expTileMode	       ///< [in] Expected tile mode
 ) {
 	uint32_t microTileThickness;
-	uint32_t expPitch = pIn->linearwidth;
-	uint32_t expHeight = pIn->linearheight;
-	uint32_t expNumSlices = pIn->lineardepth;
+	uint32_t expPitch = pIn->linear_width;
+	uint32_t expHeight = pIn->linear_height;
+	uint32_t expNumSlices = pIn->linear_depth;
 
 	// No 1D MSAA on real H/W, keep this for TGL
-	uint32_t numSamples = pIn->numfragsperpixel;
+	uint32_t numSamples = pIn->num_frags_per_pixel;
 
 	//
 	// Compute the micro tile thickness.
@@ -771,7 +771,7 @@ static GpaError ComputeSurfaceInfoMicroTiled(
 	//
 	// Extra override for mip levels
 	//
-	if (pIn->miplevel > 0) {
+	if (pIn->mip_level > 0) {
 		//
 		// Reduce tiling mode from thick to thin if the number
 		// of slices is less than the micro tile thickness.
@@ -791,11 +791,11 @@ static GpaError ComputeSurfaceInfoMicroTiled(
 	// Compute the surface restrictions.
 	//
 	ComputeSurfaceAlignmentsMicroTiled(
-	    pIn->surfaceflags, &pOut->basealign, &pOut->pitchalign,
-	    &pOut->heightalign
+	    pIn->flags, &pOut->base_align, &pOut->pitch_align,
+	    &pOut->height_align
 	);
 
-	pOut->depthalign = microTileThickness;
+	pOut->depth_align = microTileThickness;
 
 	//
 	// Pad pitch and height to the required granularities.
@@ -803,27 +803,27 @@ static GpaError ComputeSurfaceInfoMicroTiled(
 	// Return parameters.
 	//
 	PadDimensions(
-	    expTileMode, pIn->bitsperfrag, pIn->surfaceflags, numSamples,
-	    &pOut->tileinfo, padDims, pIn->miplevel, &expPitch,
-	    &pOut->pitchalign, &expHeight, pOut->heightalign, &expNumSlices,
-	    microTileThickness, pIn->mingpumode
+	    expTileMode, pIn->bits_per_frag, pIn->flags, numSamples,
+	    &pOut->tile_info, padDims, pIn->mip_level, &expPitch,
+	    &pOut->pitch_align, &expHeight, pOut->height_align, &expNumSlices,
+	    microTileThickness, pIn->min_gpu_mode
 	);
 
 	//
 	// Get HWL specific pitch adjustment
 	//
 	uint64_t logicalSliceSize = HwlGetSizeAdjustmentMicroTiled(
-	    pIn->bitsperfrag, numSamples, &expPitch, &expHeight
+	    pIn->bits_per_frag, numSamples, &expPitch, &expHeight
 	);
 
 	pOut->pitch = expPitch;
 	pOut->height = expHeight;
 	pOut->depth = expNumSlices;
 
-	pOut->surfacesize = logicalSliceSize * expNumSlices;
+	pOut->surface_byte_size = logicalSliceSize * expNumSlices;
 
 	GpaError err =
-	    gpaAdjustTileMode(&pOut->tilemode, pIn->tilemode, expTileMode);
+	    gpaAdjustTileMode(&pOut->tile_mode, pIn->tile_mode, expTileMode);
 	if (err != GPA_ERR_OK) {
 		return err;
 	}
@@ -832,10 +832,10 @@ static GpaError ComputeSurfaceInfoMicroTiled(
 }
 
 static GpaError ComputeSurfaceInfoMacroTiled(
-    const GpaTilingParams* pIn,	 ///< [in] Input structure
-    GpaSurfaceInfo* pOut,	 ///< [out] Output structure
-    uint32_t padDims,		 ///< [in] Dimensions to padd
-    GnmArrayMode expTileMode	 ///< [in] Expected tile mode
+    const GpaSurfaceDescription* pIn,  ///< [in] Input structure
+    GpaSurfaceInfo* pOut,	       ///< [out] Output structure
+    uint32_t padDims,		       ///< [in] Dimensions to padd
+    GnmArrayMode expTileMode	       ///< [in] Expected tile mode
 ) {
 	GnmArrayMode origTileMode = expTileMode;
 	uint32_t microTileThickness;
@@ -844,18 +844,18 @@ static GpaError ComputeSurfaceInfoMacroTiled(
 	uint32_t paddedHeight;
 	uint64_t bytesPerSlice;
 
-	uint32_t expPitch = pIn->linearwidth;
-	uint32_t expHeight = pIn->linearheight;
-	uint32_t expNumSlices = pIn->lineardepth;
+	uint32_t expPitch = pIn->linear_width;
+	uint32_t expHeight = pIn->linear_height;
+	uint32_t expNumSlices = pIn->linear_depth;
 
-	uint32_t numSamples = pIn->numfragsperpixel;
+	uint32_t numSamples = pIn->num_frags_per_pixel;
 
 	//
 	// Compute the surface restrictions as base SanityCheckMacroTiled is
 	// called in ComputeSurfaceAlignmentsMacroTiled
 	//
 	GpaError err = ComputeSurfaceAlignmentsMacroTiled(
-	    expTileMode, pIn->bitsperfrag, pIn->surfaceflags, pIn->miplevel,
+	    expTileMode, pIn->bits_per_frag, pIn->flags, pIn->mip_level,
 	    numSamples, pOut
 	);
 	if (err != GPA_ERR_OK) {
@@ -870,14 +870,14 @@ static GpaError ComputeSurfaceInfoMacroTiled(
 	//
 	// Find the correct tiling mode for mip levels
 	//
-	if (pIn->miplevel > 0) {
+	if (pIn->mip_level > 0) {
 		//
 		// Try valid tile mode
 		//
 		expTileMode = ComputeSurfaceMipLevelTileMode(
-		    expTileMode, pIn->bitsperfrag, expPitch, expHeight,
-		    expNumSlices, numSamples, pOut->blockwidth,
-		    pOut->blockheight, &pOut->tileinfo
+		    expTileMode, pIn->bits_per_frag, expPitch, expHeight,
+		    expNumSlices, numSamples, pOut->block_width,
+		    pOut->block_height, &pOut->tile_info
 		);
 
 		if (!gpaIsMacroTiled(expTileMode))  // Downgraded to micro-tiled
@@ -885,7 +885,9 @@ static GpaError ComputeSurfaceInfoMacroTiled(
 			return ComputeSurfaceInfoMicroTiled(
 			    pIn, pOut, padDims, expTileMode
 			);
-		} else if (microTileThickness != gpaGetMicroTileThickness(expTileMode)) {
+		} else if (
+		    microTileThickness != gpaGetMicroTileThickness(expTileMode)
+		) {
 			//
 			// Re-compute if thickness changed since bank-height may
 			// be changed!
@@ -906,8 +908,8 @@ static GpaError ComputeSurfaceInfoMacroTiled(
 	    origTileMode)  // Tile mode is changed but still macro-tiled
 	{
 		err = ComputeSurfaceAlignmentsMacroTiled(
-		    expTileMode, pIn->bitsperfrag, pIn->surfaceflags,
-		    pIn->miplevel, numSamples, pOut
+		    expTileMode, pIn->bits_per_frag, pIn->flags, pIn->mip_level,
+		    numSamples, pOut
 		);
 		if (err != GPA_ERR_OK) {
 			return err;
@@ -918,10 +920,10 @@ static GpaError ComputeSurfaceInfoMacroTiled(
 	// Do padding
 	//
 	PadDimensions(
-	    expTileMode, pIn->bitsperfrag, pIn->surfaceflags, numSamples,
-	    &pOut->tileinfo, padDims, pIn->miplevel, &paddedPitch,
-	    &pOut->pitchalign, &paddedHeight, pOut->heightalign, &expNumSlices,
-	    microTileThickness, pIn->mingpumode
+	    expTileMode, pIn->bits_per_frag, pIn->flags, numSamples,
+	    &pOut->tile_info, padDims, pIn->mip_level, &paddedPitch,
+	    &pOut->pitch_align, &paddedHeight, pOut->height_align,
+	    &expNumSlices, microTileThickness, pIn->min_gpu_mode
 	);
 
 	pOut->pitch = paddedPitch;
@@ -932,39 +934,39 @@ static GpaError ComputeSurfaceInfoMacroTiled(
 	// Compute the size of a slice.
 	//
 	bytesPerSlice = BitsToBytes64(
-	    (uint64_t)paddedPitch * paddedHeight * NextPow2(pIn->bitsperfrag) *
-	    numSamples
+	    (uint64_t)paddedPitch * paddedHeight *
+	    NextPow2(pIn->bits_per_frag) * numSamples
 	);
 
-	pOut->surfacesize = bytesPerSlice * expNumSlices;
+	pOut->surface_byte_size = bytesPerSlice * expNumSlices;
 
-	err = gpaAdjustTileMode(&pOut->tilemode, pIn->tilemode, expTileMode);
+	err = gpaAdjustTileMode(&pOut->tile_mode, pIn->tile_mode, expTileMode);
 	if (err != GPA_ERR_OK) {
 		return err;
 	}
 
-	pOut->depthalign = microTileThickness;
+	pOut->depth_align = microTileThickness;
 
 	return GPA_ERR_OK;
 }
 
 static GpaError DispatchComputeSurfaceInfo(
-    GpaSurfaceInfo* out, const GpaTilingParams* params
+    GpaSurfaceInfo* out, const GpaSurfaceDescription* params
 ) {
-	const GnmArrayMode arrayMode = gpaGetArrayMode(params->tilemode);
-	uint32_t bpp = params->bitsperfrag;
-	uint32_t numSamples = params->numfragsperpixel;
-	uint32_t numSlices = params->lineardepth;
-	uint32_t mipLevel = params->miplevel;
-	GpaSurfaceFlags flags = params->surfaceflags;
+	const GnmArrayMode arrayMode = gpaGetArrayMode(params->tile_mode);
+	uint32_t bpp = params->bits_per_frag;
+	uint32_t numSamples = params->num_frags_per_pixel;
+	uint32_t numSlices = params->linear_depth;
+	uint32_t mipLevel = params->mip_level;
+	GpaSurfaceFlags flags = params->flags;
 
 	uint32_t padDims = 0;
 
 	// For macro tile mode, we should calculate default tiling
 	// parameters
 	GpaError err = gpaGetTileInfo(
-	    &out->tileinfo, params->tilemode, bpp, numSamples,
-	    params->mingpumode
+	    &out->tile_info, params->tile_mode, bpp, numSamples,
+	    params->min_gpu_mode
 	);
 	if (err != GPA_ERR_OK) {
 		return err;
@@ -1019,28 +1021,28 @@ static GpaError DispatchComputeSurfaceInfo(
 }
 
 GpaError gpaComputeSurfaceInfo(
-    GpaSurfaceInfo* out, const GpaTilingParams* params
+    GpaSurfaceInfo* out, const GpaSurfaceDescription* params
 ) {
 	if (!out || !params) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
 	// We suggest client do sanity check but a check here is also good
-	if (params->bitsperfrag > 128) {
+	if (params->bits_per_frag > 128) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	uint32_t bitsperelem = params->bitsperfrag;
+	uint32_t bitsperelem = params->bits_per_frag;
 
 	if (!IsPow2(bitsperelem) || bitsperelem < 1 || bitsperelem > 128) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	const GnmArrayMode arraymode = gpaGetArrayMode(params->tilemode);
+	const GnmArrayMode arraymode = gpaGetArrayMode(params->tile_mode);
 
 	// Thick modes don't support multisample
 	if (gpaGetMicroTileThickness(arraymode) > 1 &&
-	    params->numfragsperpixel > 1) {
+	    params->num_frags_per_pixel > 1) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
@@ -1051,13 +1053,13 @@ GpaError gpaComputeSurfaceInfo(
 	uint32_t linearheight = 0;
 	ComputeMipLevel(&linearwidth, &linearheight, params);
 
-	if (params->numfragsperpixel > 1 && params->miplevel != 0) {
+	if (params->num_frags_per_pixel > 1 && params->mip_level != 0) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
 	// Get compression/expansion factors and element mode (which
 	// indicates compression/expansion
-	uint32_t basePitch = params->basetiledpitch;
+	uint32_t basePitch = params->base_tiled_pitch;
 	uint32_t expandX = 1;
 	uint32_t expandY = 1;
 	/*if (params->isblockcompressed) {
@@ -1098,38 +1100,38 @@ GpaError gpaComputeSurfaceInfo(
 	// 0. Any h/w has different requirement should implement its own
 	// virtual function
 
-	uint32_t lineardepth = params->lineardepth;
-	if (params->surfaceflags.pow2pad) {
+	uint32_t lineardepth = params->linear_depth;
+	if (params->flags.power_of_2_pad) {
 		linearwidth = NextPow2(linearwidth);
 		linearheight = NextPow2(linearheight);
 		lineardepth = NextPow2(lineardepth);
-	} else if (params->miplevel > 0) {
+	} else if (params->mip_level > 0) {
 		linearwidth = NextPow2(linearwidth);
 		linearheight = NextPow2(linearheight);
 
-		if (!params->surfaceflags.cube) {
+		if (!params->flags.cube) {
 			lineardepth = NextPow2(lineardepth);
 		}
 
 		// for cubemap, we keep its value at first
 	}
 
-	GpaTilingParams tpcopy = *params;
-	tpcopy.linearwidth = linearwidth;
-	tpcopy.linearheight = linearheight;
-	tpcopy.lineardepth = lineardepth;
-	tpcopy.basetiledpitch = basePitch;
+	GpaSurfaceDescription desc_copy = *params;
+	desc_copy.linear_width = linearwidth;
+	desc_copy.linear_height = linearheight;
+	desc_copy.linear_depth = lineardepth;
+	desc_copy.base_tiled_pitch = basePitch;
 
-	GpaError err = DispatchComputeSurfaceInfo(out, &tpcopy);
+	GpaError err = DispatchComputeSurfaceInfo(out, &desc_copy);
 	if (err != GPA_ERR_OK) {
 		return err;
 	}
 
 	// ElemLib::RestoreSurfaceInfo
 	out->height *= expandY;
-	out->pitchalign *= expandX;
-	out->heightalign *= expandY;
-	if (params->surfaceflags.pow2pad) {
+	out->pitch_align *= expandX;
+	out->height_align *= expandY;
+	if (params->flags.power_of_2_pad) {
 		out->pitch = NextPow2(out->pitch);
 		out->height = NextPow2(out->height);
 		out->depth = NextPow2(out->depth);
@@ -1190,33 +1192,33 @@ static inline void ComputeTileDataWidthAndHeight(
 }
 
 GpaError gpaComputeHtileInfo(
-    GpaHtileInfo* outinfo, const GpaHtileParams* params
+    GpaHtileInfo* outinfo, const GpaHtileDescription* desc
 ) {
-	if (!outinfo || !params) {
+	if (!outinfo || !desc) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	const uint32_t banks = 1 << params->banks;
-	const uint32_t pipes = gpaGetPipeCount(params->pipeconfig);
+	const uint32_t banks = 1 << desc->banks;
+	const uint32_t pipes = gpaGetPipeCount(desc->pipe_config);
 
-	if (params->flags.tccompatible) {
+	if (desc->flags.tc_compatible) {
 		const uint32_t sliceSize =
-		    params->pitch * params->height * 4 / (8 * 8);
+		    desc->pitch * desc->height * 4 / (8 * 8);
 		const uint32_t align = pipes * banks * PIPE_INTERLEAVE_BYTES;
 
-		outinfo->macrowidth =
+		outinfo->macro_width =
 		    8 * 512 /
-		    params->bpp;  // Align width to 512-bit memory accesses
-		outinfo->macroheight =
+		    desc->bpp;	// Align width to 512-bit memory accesses
+		outinfo->macro_height =
 		    8 * pipes;	// Align height to number of pipes
 
-		outinfo->htilebytes = sliceSize;
+		outinfo->htile_byte_size = sliceSize;
 
-		outinfo->pitch = params->pitch;
-		outinfo->height = params->height;
-		outinfo->basealign = align;
-		outinfo->macrowidth = 0;
-		outinfo->macroheight = 0;
+		outinfo->pitch = desc->pitch;
+		outinfo->height = desc->height;
+		outinfo->base_align = align;
+		outinfo->macro_width = 0;
+		outinfo->macro_height = 0;
 		outinfo->bpp = 32;
 	} else {
 		uint32_t macroWidth = 0;
@@ -1225,36 +1227,36 @@ GpaError gpaComputeHtileInfo(
 		uint64_t surfBytes = 0;
 		uint64_t sliceBytes = 0;
 
-		const uint32_t numSlices = umax(1u, params->numslices);
+		const uint32_t numSlices = umax(1u, desc->num_slices);
 
 		const uint32_t bpp = 32;
 		const uint32_t cacheBits = HtileCacheBits;
 
-		const bool islinear = gpaIsLinear(params->arraymode);
+		const bool islinear = gpaIsLinear(desc->array_mode);
 
 		if (islinear) {
 			HwlComputeTileDataWidthAndHeightLinear(
-			    &macroWidth, &macroHeight, params->pipeconfig
+			    &macroWidth, &macroHeight, desc->pipe_config
 			);
 		} else {
 			ComputeTileDataWidthAndHeight(
-			    bpp, cacheBits, params->pipeconfig, &macroWidth,
+			    bpp, cacheBits, desc->pipe_config, &macroWidth,
 			    &macroHeight
 			);
 		}
 
-		outinfo->pitch = PowTwoAlign32(params->pitch, macroWidth);
-		outinfo->height = PowTwoAlign32(params->height, macroHeight);
+		outinfo->pitch = PowTwoAlign32(desc->pitch, macroWidth);
+		outinfo->height = PowTwoAlign32(desc->height, macroHeight);
 
 		baseAlign = PIPE_INTERLEAVE_BYTES * pipes;
-		if (params->flags.tccompatible) {
+		if (desc->flags.tc_compatible) {
 			baseAlign *= banks;
 		}
 
-		outinfo->basealign = baseAlign;
+		outinfo->base_align = baseAlign;
 
-		outinfo->macrowidth = macroWidth;
-		outinfo->macroheight = macroHeight;
+		outinfo->macro_width = macroWidth;
+		outinfo->macro_height = macroHeight;
 
 		const uint64_t HtileCacheLineSize =
 		    BitsToBytes64(HtileCacheBits);
@@ -1269,10 +1271,10 @@ GpaError gpaComputeHtileInfo(
 		surfBytes =
 		    PowTwoAlign32(surfBytes, HtileCacheLineSize * pipes);
 
-		outinfo->htilebytes = surfBytes;
-		outinfo->slicebytes = sliceBytes;
+		outinfo->htile_byte_size = surfBytes;
+		outinfo->slice_byte_size = sliceBytes;
 
-		outinfo->bpp = params->bpp;
+		outinfo->bpp = desc->bpp;
 	}
 
 	return GPA_ERR_OK;
@@ -1294,7 +1296,7 @@ static inline uint32_t ComputeCmaskBaseAlign(
     bool tcCompatible		   ///< [in] should be shader readable
 ) {
 	uint32_t baseAlign =
-	    PIPE_INTERLEAVE_BYTES * gpaGetPipeCount(pTileInfo->pipeconfig);
+	    PIPE_INTERLEAVE_BYTES * gpaGetPipeCount(pTileInfo->pipe_config);
 
 	if (tcCompatible) {
 		baseAlign *= (1 << pTileInfo->banks);
@@ -1304,16 +1306,16 @@ static inline uint32_t ComputeCmaskBaseAlign(
 }
 
 GpaError gpaComputeCmaskInfo(
-    GpaCmaskInfo* outinfo, const GpaCmaskParams* params
+    GpaCmaskInfo* outinfo, const GpaCmaskDescription* desc
 ) {
-	if (!outinfo || !params) {
+	if (!outinfo || !desc) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
 	GpaTileInfo tileinfo = {0};
 	GpaError err = gpaGetTileInfo(
-	    &tileinfo, params->tilemode, params->bpp, params->numfrags,
-	    params->mingpumode
+	    &tileinfo, desc->tile_mode, desc->bpp, desc->num_frags,
+	    desc->min_gpu_mode
 	);
 	if (err != GPA_ERR_OK) {
 		return err;
@@ -1325,32 +1327,30 @@ GpaError gpaComputeCmaskInfo(
 	uint64_t surfBytes = 0;
 	uint64_t sliceBytes = 0;
 
-	uint32_t numSlices = umax(1u, params->numslices);
+	uint32_t numSlices = umax(1u, desc->num_slices);
 
 	const uint32_t bpp = CmaskElemBits;
 	const uint32_t cacheBits = CmaskCacheBits;
-	const GnmArrayMode arrayMode = gpaGetArrayMode(params->tilemode);
+	const GnmArrayMode arrayMode = gpaGetArrayMode(desc->tile_mode);
 	const bool islinear = gpaIsLinear(arrayMode);
 
 	if (islinear) {
 		HwlComputeTileDataWidthAndHeightLinear(
-		    &macroWidth, &macroHeight, tileinfo.pipeconfig
+		    &macroWidth, &macroHeight, tileinfo.pipe_config
 		);
 	} else {
 		ComputeTileDataWidthAndHeight(
-		    bpp, cacheBits, tileinfo.pipeconfig, &macroWidth,
+		    bpp, cacheBits, tileinfo.pipe_config, &macroWidth,
 		    &macroHeight
 		);
 	}
 
-	outinfo->pitch = (params->pitch + macroWidth - 1) & ~(macroWidth - 1);
-	outinfo->height =
-	    (params->height + macroHeight - 1) & ~(macroHeight - 1);
+	outinfo->pitch = (desc->pitch + macroWidth - 1) & ~(macroWidth - 1);
+	outinfo->height = (desc->height + macroHeight - 1) & ~(macroHeight - 1);
 
 	sliceBytes = ComputeCmaskBytes(outinfo->pitch, outinfo->height, 1);
 
-	baseAlign =
-	    ComputeCmaskBaseAlign(&tileinfo, params->flags.tccompatible);
+	baseAlign = ComputeCmaskBaseAlign(&tileinfo, desc->flags.tc_compatible);
 
 	while (sliceBytes % baseAlign) {
 		outinfo->height += macroHeight;
@@ -1361,15 +1361,15 @@ GpaError gpaComputeCmaskInfo(
 
 	surfBytes = sliceBytes * numSlices;
 
-	outinfo->cmaskbytes = surfBytes;
+	outinfo->cmask_byte_size = surfBytes;
 
 	//
 	// Use SafeAssign since they are optional
 	//
-	outinfo->macrowidth = macroWidth;
-	outinfo->macroheight = macroHeight;
-	outinfo->basealign = baseAlign;
-	outinfo->slicebytes = sliceBytes;
+	outinfo->macro_width = macroWidth;
+	outinfo->macro_height = macroHeight;
+	outinfo->base_align = baseAlign;
+	outinfo->slice_byte_size = sliceBytes;
 
 	uint32_t slice = (outinfo->pitch) * (outinfo->height);
 	uint32_t blockMax = slice / 128 / 128 - 1;
@@ -1381,37 +1381,75 @@ GpaError gpaComputeCmaskInfo(
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	outinfo->blockmax = blockMax;
+	outinfo->block_max = blockMax;
 
 	return GPA_ERR_OK;
 }
 
 GpaError gpaComputeFmaskInfo(
-    GpaFmaskInfo* outinfo, const GpaFmaskParams* params
+    GpaFmaskInfo* outinfo, const GpaFmaskDescription* desc
 ) {
-	if (!outinfo || !params || params->numfrags <= 1) {
+	if (!outinfo || !desc || desc->num_frags <= 1 ||
+	    desc->num_samples <= 1) {
+		return GPA_ERR_INVALID_ARGS;
+	}
+	if (desc->num_samples < desc->num_frags) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	const GpaTilingParams tp = {
-	    .tilemode = params->tilemode,
-	    .mingpumode = params->mingpumode,
+	GnmImageFormat fmask_format;
+	if (desc->num_samples == 2 && desc->num_frags == 1) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK8_S2_F1;
+	} else if (desc->num_samples == 2 && desc->num_frags == 2) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK8_S2_F2;
+	} else if (desc->num_samples == 4 && desc->num_frags == 1) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK8_S4_F1;
+	} else if (desc->num_samples == 4 && desc->num_frags == 2) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK8_S4_F2;
+	} else if (desc->num_samples == 4 && desc->num_frags == 4) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK8_S4_F4;
+	} else if (desc->num_samples == 8 && desc->num_frags == 1) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK8_S8_F1;
+	} else if (desc->num_samples == 8 && desc->num_frags == 2) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK16_S8_F2;
+	} else if (desc->num_samples == 8 && desc->num_frags == 4) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK32_S8_F4;
+	} else if (desc->num_samples == 8 && desc->num_frags == 8) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK32_S8_F8;
+	} else if (desc->num_samples == 16 && desc->num_frags == 1) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK16_S16_F1;
+	} else if (desc->num_samples == 16 && desc->num_frags == 2) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK32_S16_F2;
+	} else if (desc->num_samples == 16 && desc->num_frags == 4) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK64_S16_F4;
+	} else if (desc->num_samples == 16 && desc->num_frags == 8) {
+		fmask_format = GNM_IMG_DATA_FORMAT_FMASK64_S16_F8;
+	} else {
+		// invalid num_samples/num_frags pair
+		return GPA_ERR_INVALID_ARGS;
+	}
 
-	    .linearwidth = params->pitch,
-	    .linearheight = params->height,
-	    .lineardepth = params->numslices,
-	    .numfragsperpixel = params->numfrags,
-	    .basetiledpitch = 0,
+	const uint8_t bpp = gnmGetBitsPerElement(fmask_format);
 
-	    .miplevel = 0,
-	    .arrayslice = 0,
-	    .surfaceflags =
-		{
-		    .fmask = 1,
-		    .texcompatible = params->mingpumode == GNM_GPU_NEO,
-		},
-	    .bitsperfrag = params->bpp,
-	    .isblockcompressed = params->isblockcompressed,
+	const GpaSurfaceDescription tp = {
+	    .tile_mode = desc->tile_mode,
+	    .image_format = fmask_format,
+	    .min_gpu_mode = desc->min_gpu_mode,
+
+	    .linear_width = desc->pitch,
+	    .linear_height = desc->height,
+	    .linear_depth = desc->num_slices,
+	    .base_tiled_pitch = 0,
+
+	    .num_frags_per_pixel = desc->num_frags,
+	    .bits_per_frag = bpp,
+
+	    .mip_level = 0,
+	    .array_slice = 0,
+	    .flags = {
+		.fmask = 1,
+		.tc_compatible = desc->min_gpu_mode == GNM_GPU_NEO,
+	    },
 	};
 
 	GpaSurfaceInfo surfinfo = {0};
@@ -1423,77 +1461,81 @@ GpaError gpaComputeFmaskInfo(
 	*outinfo = (GpaFmaskInfo){
 	    .pitch = surfinfo.pitch,
 	    .height = surfinfo.height,
-	    .basealign = surfinfo.basealign,
-	    .pitchalign = surfinfo.pitchalign,
-	    .heightalign = surfinfo.heightalign,
-	    .bpp = surfinfo.bitsperelem,
-	    .fmaskbytes = surfinfo.surfacesize * params->numslices,
-	    .slicebytes = surfinfo.surfacesize,
+	    .base_align = surfinfo.base_align,
+	    .pitch_align = surfinfo.pitch_align,
+	    .height_align = surfinfo.height_align,
+	    .bits_per_pixel = surfinfo.bpp,
+	    .fmask_byte_size = surfinfo.surface_byte_size * desc->num_slices,
+	    .slice_byte_size = surfinfo.surface_byte_size,
 	};
 	return GPA_ERR_OK;
 }
 
 GpaError gpaInitSurfaceContext(
-    GpaSurfaceContext* ctx, size_t surfsize, const GpaTilingParams* tp
+    GpaSurfaceContext* ctx, size_t surfsize, const GpaSurfaceDescription* desc
 ) {
 	GpaSurfaceInfo surfinfo = {0};
-	GpaError err = gpaComputeSurfaceInfo(&surfinfo, tp);
+	GpaError err = gpaComputeSurfaceInfo(&surfinfo, desc);
 	if (err != GPA_ERR_OK) {
 		return err;
 	}
 
-	if (surfinfo.surfacesize > surfsize) {
+	if (surfinfo.surface_byte_size > surfsize) {
 		return GPA_ERR_OVERFLOW;
 	}
 
 	GpaTileInfo tileinfo = {0};
 	err = gpaGetTileInfo(
-	    &tileinfo, tp->tilemode, tp->bitsperfrag, tp->numfragsperpixel,
-	    tp->mingpumode
+	    &tileinfo, desc->tile_mode, desc->bits_per_frag,
+	    desc->num_frags_per_pixel, desc->min_gpu_mode
 	);
 	if (err != GPA_ERR_OK) {
 		return err;
 	}
 
 	*ctx = (GpaSurfaceContext){
-	    .mingpumode = tp->mingpumode,
-	    .tilemode = tp->tilemode,
-	    .tileinfo = tileinfo,
+	    .min_gpu_mode = desc->min_gpu_mode,
+	    .tile_mode = desc->tile_mode,
+	    .tile_info = tileinfo,
 
-	    .linearwidth = tp->linearwidth,
-	    .linearheight = tp->linearheight,
-	    .lineardepth = tp->lineardepth,
-	    .paddedwidth = surfinfo.pitch,
-	    .paddedheight = surfinfo.height,
-	    .paddeddepth = surfinfo.depth,
+	    .linear_width = desc->linear_width,
+	    .linear_height = desc->linear_height,
+	    .linear_depth = desc->linear_depth,
+	    .padded_width = surfinfo.pitch,
+	    .padded_height = surfinfo.height,
+	    .padded_depth = surfinfo.depth,
 
-	    .bitsperelement = tp->bitsperfrag,
-	    .numfragsperpixel = tp->numfragsperpixel,
+	    .bits_per_element = desc->bits_per_frag,
+	    .num_frags_per_pixel = desc->num_frags_per_pixel,
 
 	    // TODO: calc swizzle?
-	    .bankswizzlemask = 0,
-	    .pipeswizzlemask = 0,
+	    .bank_swizzle_mask = 0,
+	    .pipe_swizzle_mask = 0,
 	};
 
 	// TODO: why is this here?
 	// BC7 tests fail is this isn't here,
 	// but shouldn't this be handled by something else already?
-	if (tp->isblockcompressed) {
-		switch (tp->bitsperfrag) {
+	if (gnmIsBlockCompressed(desc->image_format)) {
+		switch (desc->bits_per_frag) {
 		case 1:
-			ctx->bitsperelement *= 8;
-			ctx->linearwidth = umax((ctx->linearwidth + 7) / 8, 1);
-			ctx->paddedwidth = umax((ctx->paddedwidth + 7) / 8, 1);
+			ctx->bits_per_element *= 8;
+			ctx->linear_width =
+			    umax((ctx->linear_width + 7) / 8, 1);
+			ctx->padded_width =
+			    umax((ctx->padded_width + 7) / 8, 1);
 			break;
 		case 4:
 		case 8:
-			ctx->bitsperelement *= 16;
-			ctx->linearwidth = umax((ctx->linearwidth + 3) / 4, 1);
-			ctx->linearheight =
-			    umax((ctx->linearheight + 3) / 4, 1);
-			ctx->paddedwidth = umax((ctx->paddedwidth + 3) / 4, 1);
-			ctx->paddedheight =
-			    umax((ctx->paddedheight + 3) / 4, 1);
+			ctx->bits_per_element *= 16;
+			ctx->linear_width =
+			    umax((ctx->linear_width + 3) / 4, 1);
+			ctx->linear_height =
+			    umax((ctx->linear_height + 3) / 4, 1);
+			ctx->padded_width =
+			    umax((ctx->padded_width + 3) / 4, 1);
+			ctx->padded_height =
+			    umax((ctx->padded_height + 3) / 4, 1);
 			break;
 		case 16:
 		default:
@@ -1584,7 +1626,10 @@ static GpaError ComputePixelIndexWithinMicroTile(
 			default:
 				return GPA_ERR_INTERNAL_ERROR;
 			}
-		} else if (microTileType != GNM_SURF_DISPLAY_MICRO_TILING || microTileType == GNM_SURF_DEPTH_MICRO_TILING) {
+		} else if (
+		    microTileType != GNM_SURF_DISPLAY_MICRO_TILING ||
+		    microTileType == GNM_SURF_DEPTH_MICRO_TILING
+		) {
 			pixelBit0 = x0;
 			pixelBit1 = y0;
 			pixelBit2 = x1;
@@ -1863,7 +1908,7 @@ static uint32_t ComputePipeFromCoord(
 	const uint32_t y5 = (ty >> 2) & 1;
 	const uint32_t y6 = (ty >> 3) & 1;
 
-	switch (pTileInfo->pipeconfig) {
+	switch (pTileInfo->pipe_config) {
 	case GNM_ADDR_SURF_P2:
 		pipeBit0 = x3 ^ y3;
 		numPipes = 2;
@@ -1931,7 +1976,7 @@ static GpaError ComputeBankFromCoord(
     const GpaTileInfo* pTileInfo,  ///< [in] tile info
     uint32_t* outCoord		   ///< [out] resulting coord
 ) {
-	const uint32_t pipes = gpaGetPipeCount(pTileInfo->pipeconfig);
+	const uint32_t pipes = gpaGetPipeCount(pTileInfo->pipe_config);
 	uint32_t bankBit0 = 0;
 	uint32_t bankBit1 = 0;
 	uint32_t bankBit2 = 0;
@@ -1940,8 +1985,8 @@ static GpaError ComputeBankFromCoord(
 	uint32_t tileSplitRotation;
 	uint32_t bank;
 	const uint32_t numBanks = 2 << pTileInfo->banks;
-	const uint32_t bankWidth = (1 << pTileInfo->bankwidth);
-	const uint32_t bankHeight = (1 << pTileInfo->bankheight);
+	const uint32_t bankWidth = (1 << pTileInfo->bank_width);
+	const uint32_t bankHeight = (1 << pTileInfo->bank_height);
 
 	const uint32_t tx = x / MicroTileWidth / (bankWidth * pipes);
 	const uint32_t ty = y / MicroTileHeight / bankHeight;
@@ -2092,16 +2137,16 @@ static GpaError ComputeSurfaceAddrFromCoordMacroTiled(
 	uint32_t microTileThickness = gpaGetMicroTileThickness(arrayMode);
 
 	const uint32_t banks = 2 << pTileInfo->banks;
-	const uint32_t bankWidth = (1 << pTileInfo->bankwidth);
-	const uint32_t bankHeight = (1 << pTileInfo->bankheight);
-	const uint32_t macroAspectRatio = (1 << pTileInfo->macroaspectratio);
+	const uint32_t bankWidth = (1 << pTileInfo->bank_width);
+	const uint32_t bankHeight = (1 << pTileInfo->bank_height);
+	const uint32_t macroAspectRatio = (1 << pTileInfo->macro_aspect_ratio);
 	const uint32_t tileSplitBytes =
-	    GetTileSplitBytes(pTileInfo->tilesplit, bpp, microTileThickness);
+	    GetTileSplitBytes(pTileInfo->tile_split, bpp, microTileThickness);
 
 	//
 	// Compute the number of group, pipe, and bank bits.
 	//
-	uint32_t numPipes = gpaGetPipeCount(pTileInfo->pipeconfig);
+	uint32_t numPipes = gpaGetPipeCount(pTileInfo->pipe_config);
 	uint32_t numPipeInterleaveBits = log2(PIPE_INTERLEAVE_BYTES);
 	uint32_t numPipeBits = log2(numPipes);
 	uint32_t numBankInterleaveBits = log2(BANK_INTERLEAVE);
@@ -2321,25 +2366,25 @@ GpaError gpaComputeSurfaceCoord(
     uint64_t* outoffset, uint64_t* outbitoffset, const GpaSurfaceContext* ctx,
     uint32_t x, uint32_t y, uint32_t z, uint32_t fragindex
 ) {
-	if (x > ctx->paddedwidth || y > ctx->paddedheight ||
-	    z > ctx->paddeddepth || fragindex > ctx->numfragsperpixel) {
+	if (x > ctx->padded_width || y > ctx->padded_height ||
+	    z > ctx->padded_depth || fragindex > ctx->num_frags_per_pixel) {
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	const GnmArrayMode arraymode = gpaGetArrayMode(ctx->tilemode);
+	const GnmArrayMode arraymode = gpaGetArrayMode(ctx->tile_mode);
 	const GnmMicroTileMode microTileType =
-	    gpaGetMicroTileMode(ctx->tilemode);
+	    gpaGetMicroTileMode(ctx->tile_mode);
 	// ADDR_DEPTH_SAMPLE_ORDER = non-disp + depth-sample-order
 	const bool isDepthSampleOrder =
 	    microTileType == GNM_SURF_DEPTH_MICRO_TILING;
 
-	if (ctx->mingpumode == GNM_GPU_NEO) {
+	if (ctx->min_gpu_mode == GNM_GPU_NEO) {
 		/// @note
 		/// 128 bit/thick tiled surface doesn't support display
 		/// tiling and mipmap chain must have the same tileType,
 		/// so please fill tileType correctly
 		if (!gpaIsLinear(arraymode)) {
-			if (ctx->bitsperelement >= 128 ||
+			if (ctx->bits_per_element >= 128 ||
 			    gpaGetMicroTileThickness(arraymode) > 1) {
 				if (microTileType ==
 				    GNM_SURF_DISPLAY_MICRO_TILING) {
@@ -2356,22 +2401,25 @@ GpaError gpaComputeSurfaceCoord(
 	switch (arraymode) {
 	case GNM_ARRAY_LINEAR_GENERAL:
 		addr = gpaComputeSurfaceAddrFromCoordLinear(
-		    x, y, z, fragindex, ctx->bitsperelement, ctx->linearwidth,
-		    ctx->linearheight, ctx->lineardepth, &bitPosition
+		    x, y, z, fragindex, ctx->bits_per_element,
+		    ctx->linear_width, ctx->linear_height, ctx->linear_depth,
+		    &bitPosition
 		);
 		break;
 	case GNM_ARRAY_LINEAR_ALIGNED:
 		addr = gpaComputeSurfaceAddrFromCoordLinear(
-		    x, y, z, fragindex, ctx->bitsperelement, ctx->paddedwidth,
-		    ctx->paddedheight, ctx->paddeddepth, &bitPosition
+		    x, y, z, fragindex, ctx->bits_per_element,
+		    ctx->padded_width, ctx->padded_height, ctx->padded_depth,
+		    &bitPosition
 		);
 		break;
 	case GNM_ARRAY_1D_TILED_THIN1:	// fall through
 	case GNM_ARRAY_1D_TILED_THICK:
 		err = ComputeSurfaceAddrFromCoordMicroTiled(
-		    x, y, z, fragindex, ctx->bitsperelement, ctx->paddedwidth,
-		    ctx->paddedheight, ctx->paddeddepth, arraymode,
-		    microTileType, isDepthSampleOrder, &addr, &bitPosition
+		    x, y, z, fragindex, ctx->bits_per_element,
+		    ctx->padded_width, ctx->padded_height, ctx->padded_depth,
+		    arraymode, microTileType, isDepthSampleOrder, &addr,
+		    &bitPosition
 		);
 		break;
 	case GNM_ARRAY_2D_TILED_THIN1:	    // fall through
@@ -2387,10 +2435,11 @@ GpaError gpaComputeSurfaceCoord(
 	case GNM_ARRAY_PRT_2D_TILED_THICK:  // fall through
 	case GNM_ARRAY_PRT_3D_TILED_THICK:
 		err = ComputeSurfaceAddrFromCoordMacroTiled(
-		    x, y, z, fragindex, ctx->bitsperelement, ctx->paddedwidth,
-		    ctx->paddedheight, ctx->paddeddepth, arraymode,
-		    microTileType, isDepthSampleOrder, ctx->pipeswizzlemask,
-		    ctx->bankswizzlemask, &ctx->tileinfo, &addr, &bitPosition
+		    x, y, z, fragindex, ctx->bits_per_element,
+		    ctx->padded_width, ctx->padded_height, ctx->padded_depth,
+		    arraymode, microTileType, isDepthSampleOrder,
+		    ctx->pipe_swizzle_mask, ctx->bank_swizzle_mask,
+		    &ctx->tile_info, &addr, &bitPosition
 		);
 		break;
 	default:
@@ -2415,14 +2464,14 @@ GpaError gpaComputeSurfaceSizeOffset(
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	const uint32_t numarrayslices = tex->numslices;
+	const uint32_t numarrayslices = tex->num_slices;
 	const uint32_t basewidth = tex->width;
 	const uint32_t baseheight = tex->height;
 	const uint32_t basedepth = tex->depth;
 	const uint32_t basepitch = tex->pitch;
 
-	GpaTilingParams tp = {0};
-	GpaError res = gpaTpInit(&tp, tex, 0, arrayslice);
+	GpaSurfaceDescription tp = {0};
+	GpaError res = gpaSurfaceDescInit(&tp, tex, 0, arrayslice);
 	if (res != GPA_ERR_OK) {
 		return res;
 	}
@@ -2435,21 +2484,21 @@ GpaError gpaComputeSurfaceSizeOffset(
 	for (uint32_t m = 0; m <= miplevel; m += 1) {
 		finaloffset += numarrayslices * finalsize;
 
-		tp.linearwidth = umax(basewidth >> m, 1);
-		tp.linearheight = umax(baseheight >> m, 1);
-		tp.lineardepth = basedepth;
-		tp.basetiledpitch = basepitch;
-		tp.miplevel = m;
+		tp.linear_width = umax(basewidth >> m, 1);
+		tp.linear_height = umax(baseheight >> m, 1);
+		tp.linear_depth = basedepth;
+		tp.base_tiled_pitch = basepitch;
+		tp.mip_level = m;
 
 		res = gpaComputeSurfaceInfo(&si, &tp);
 		if (res != GPA_ERR_OK) {
 			return res;
 		}
 
-		finalsize = si.surfacesize;
+		finalsize = si.surface_byte_size;
 	}
 
-	finaloffset += si.surfacesize * arrayslice;
+	finaloffset += si.surface_byte_size * arrayslice;
 
 	if (outsize) {
 		*outsize = finalsize;

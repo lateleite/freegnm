@@ -133,7 +133,7 @@ static GpaError gettile(
 	const uint32_t srcoffset = gpaComputeSurfaceAddrFromCoordLinear(
 	    elemstilewide * x, elemstiletall * y, idx->arrayindex,
 	    idx->fragment, bpp, texinfo->pitch, texinfo->height,
-	    texinfo->numslices, NULL
+	    texinfo->num_slices, NULL
 	);
 
 	if (srcoffset + (numelemsh - 1) * bytesperrow + byteselemsw > inlen) {
@@ -186,7 +186,7 @@ static GpaError puttile(
 	const uint32_t dstoffset = gpaComputeSurfaceAddrFromCoordLinear(
 	    elemstilewide * x, elemstiletall * y, idx->arrayindex,
 	    idx->fragment, bpp, texinfo->width, texinfo->height,
-	    texinfo->numslices, NULL
+	    texinfo->num_slices, NULL
 	);
 
 	if ((numelemsh - 1) * tilepitchbytes + byteselemsw >
@@ -273,8 +273,8 @@ GpaError gpaGetDecompressedSize(
 	GpaTextureInfo dectexinfo = *texinfo;
 	dectexinfo.fmt = getdecompressfmt(texinfo->fmt);
 
-	GpaTilingParams tp = {0};
-	GpaError err = gpaTpInit(&tp, &dectexinfo, 0, 0);
+	GpaSurfaceDescription tp = {0};
+	GpaError err = gpaSurfaceDescInit(&tp, &dectexinfo, 0, 0);
 	if (err != GPA_ERR_OK) {
 		return err;
 	}
@@ -285,7 +285,7 @@ GpaError gpaGetDecompressedSize(
 		return err;
 	}
 
-	*outsize = surfinfo.surfacesize;
+	*outsize = surfinfo.surface_byte_size;
 	return GPA_ERR_OK;
 }
 
@@ -297,7 +297,7 @@ GpaError gpaDecompressTexture(
 		return GPA_ERR_INVALID_ARGS;
 	}
 
-	if (!gnmDfIsBlockCompressed(texinfo->fmt)) {
+	if (!gnmIsBlockCompressed(texinfo->fmt.surfacefmt)) {
 		return GPA_ERR_NOT_COMPRESSED;
 	}
 
@@ -306,10 +306,10 @@ GpaError gpaDecompressTexture(
 		return GPA_ERR_UNSUPPORTED;
 	}
 
-	for (uint32_t a = 0; a < texinfo->numslices; a += 1) {
+	for (uint32_t a = 0; a < texinfo->num_slices; a += 1) {
 		for (uint32_t d = 0; d < texinfo->depth; d += 1) {
-			for (uint32_t m = 0; m < texinfo->nummips; m += 1) {
-				for (uint32_t fr = 0; fr < texinfo->numfrags;
+			for (uint32_t m = 0; m < texinfo->num_mips; m += 1) {
+				for (uint32_t fr = 0; fr < texinfo->num_frags;
 				     fr += 1) {
 					const GpaSurfaceIndex idx = {
 					    .arrayindex = a,

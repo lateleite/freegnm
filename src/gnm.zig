@@ -48,7 +48,7 @@ pub const CachePolicy = enum(u2) {
     bypass = 2,
 };
 
-pub const WaitRegFunction = enum(u3) {
+pub const WaitOperation = enum(u3) {
     always = 0,
     less = 1,
     less_equal = 2,
@@ -178,6 +178,11 @@ pub const TileMode = enum(u5) {
     thick_3d_thick_prt = 24,
     thick_2d_xthick = 25,
     thick_3d_xthick = 26,
+
+    rotated_1d_thin = 27,
+    rotated_2d_thin = 28,
+    rotated_thin_prt = 29,
+    rotated_2d_thin_prt = 30,
 
     display_linear_general = 31,
 };
@@ -449,7 +454,7 @@ pub const Buffer = extern struct {
     }
 
     pub fn createData(address: *anyopaque, format: DataFormat, num_elements: u32) CreateDataError!Buffer {
-        const elem_byte_len = format.surface.getBitSize() / 8;
+        const elem_byte_len = format.surface.getBitsPerElement() / 8;
         const min_alignment = @min(4, elem_byte_len);
         const addr_u64: u64 = @intFromPtr(address);
 
@@ -491,7 +496,7 @@ pub const Buffer = extern struct {
         stride: u14,
         num_elements: u32,
     ) error{ InvalidFormat, InvalidStride, UnalignedAddress }!Buffer {
-        const elem_byte_len = format.surface.getBitSize() / 8;
+        const elem_byte_len = format.surface.getBitsPerElement() / 8;
         const min_alignment = @min(4, elem_byte_len);
         const addr_u64: u64 = @intFromPtr(address);
 
@@ -1305,7 +1310,7 @@ pub const ImageFormat = enum(u6) {
     @"1" = 59,
     @"1_reversed" = 60,
 
-    pub fn getBitSize(format: ImageFormat) u8 {
+    pub fn getBitsPerElement(format: ImageFormat) u8 {
         return switch (format) {
             .invalid => 0,
             .@"8" => 8,

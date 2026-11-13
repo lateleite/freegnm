@@ -79,19 +79,19 @@ FnfError fnfKtxLoad(
 	}
 
 	const GnmTextureCreateInfo ci = {
-	    .texturetype = textype,
+	    .texture_type = textype,
 	    .width = info.pixelwidth,
 	    .height = info.pixelheight > 0 ? info.pixelheight : 1,
 	    .depth = info.pixeldepth > 0 ? info.pixeldepth : 1,
 	    .pitch = info.pixelwidth,
 
-	    .nummiplevels = info.numlevels > 0 ? info.numlevels : 1,
-	    .numslices = info.numarrayelems > 0 ? info.numarrayelems : 1,
+	    .num_mip_levels = info.numlevels > 0 ? info.numlevels : 1,
+	    .num_slices = info.numarrayelems > 0 ? info.numarrayelems : 1,
 
 	    .format = fmt,
-	    .tilemodehint = GNM_TM_DISPLAY_LINEAR_GENERAL,
-	    .mingpumode = GNM_GPU_BASE,
-	    .numfragments = 1,
+	    .tile_mode_hint = GNM_TM_DISPLAY_LINEAR_GENERAL,
+	    .min_gpu_mode = GNM_GPU_BASE,
+	    .num_fragments = 1,
 	};
 	GnmError gnmerr = gnmCreateTexture(out_tex, &ci);
 	if (gnmerr != GNM_ERROR_OK) {
@@ -113,9 +113,9 @@ FnfError fnfKtxLoad(
 
 	memset(texdata, 0, texlen);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(out_tex);
-	for (uint32_t m = 0; m < ci.nummiplevels; m += 1) {
-		for (uint32_t s = 0; s < ci.numslices; s += 1) {
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(out_tex);
+	for (uint32_t m = 0; m < ci.num_mip_levels; m += 1) {
+		for (uint32_t s = 0; s < ci.num_slices; s += 1) {
 			for (uint32_t f = 0; f < info.numfaces; f += 1) {
 				uint64_t offset = 0;
 				uint64_t size = 0;
@@ -304,7 +304,7 @@ FnfError fnfKtxStore(
 	}
 
 	UKtxWriteLevel mipmaps[UKTX_MAX_LEVELS] = {0};
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(tex);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(tex);
 	for (uint32_t m = 0; m < nummips; m += 1) {
 		mipmaps[m].slices =
 		    malloc(sizeof(UKtxWriteSlice) * numarrayslices);

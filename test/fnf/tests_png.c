@@ -278,14 +278,14 @@ static TestResult test_png_to_gnf(void) {
 	void* tilebuf = malloc(tilebufsize);
 	utassert(tilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    pngbuf, pngsize, tilebuf, tilebufsize, &texinfo, GNM_TM_THIN_1D_THIN
 	);
 	free(pngbuf);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_THIN_1D_THIN;
+	texture.tiling_index = GNM_TM_THIN_1D_THIN;
 
 	size_t gnfsize = 0;
 	void* gnfbuf = NULL;
@@ -312,7 +312,7 @@ static TestResult test_gnf_to_png(void) {
 	void* detilebuf = malloc(detilebufsize);
 	utassert(detilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    texbuf, texsize, detilebuf, detilebufsize, &texinfo,
 	    GNM_TM_DISPLAY_LINEAR_GENERAL
@@ -320,7 +320,7 @@ static TestResult test_gnf_to_png(void) {
 	free(texbuf);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	texture.tiling_index = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	const GpaSurfaceIndex surfindex = {
 	    .arrayindex = 0,
@@ -359,7 +359,7 @@ static TestResult test_gnf_to_png_notpow2(void) {
 	void* detilebuf = malloc(detilebufsize);
 	utassert(detilebuf);
 
-	const GpaTextureInfo texinfo = gnmTexBuildInfo(&texture);
+	const GpaTextureInfo texinfo = gpaFromGnmTexture(&texture);
 	GpaError gerr = gpaTileTextureAll(
 	    texbuf, texsize, detilebuf, detilebufsize, &texinfo,
 	    GNM_TM_DISPLAY_LINEAR_GENERAL
@@ -367,7 +367,7 @@ static TestResult test_gnf_to_png_notpow2(void) {
 	free(texbuf);
 	utassert(gerr == GPA_ERR_OK);
 
-	texture.tilingindex = GNM_TM_DISPLAY_LINEAR_GENERAL;
+	texture.tiling_index = GNM_TM_DISPLAY_LINEAR_GENERAL;
 
 	const GpaSurfaceIndex surfindex = {
 	    .arrayindex = 0,

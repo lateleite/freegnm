@@ -19,7 +19,23 @@ typedef union {
 } GnmDataFormat;
 _Static_assert(sizeof(GnmDataFormat) == 0x4, "");
 
-GnmDataFormat gnmDfInitFromFmask(uint32_t numsamples, uint32_t numfrags);
+static inline bool gnmIsBlockCompressed(const GnmImageFormat image_format) {
+	switch (image_format) {
+	case GNM_IMG_DATA_FORMAT_BC1:
+	case GNM_IMG_DATA_FORMAT_BC2:
+	case GNM_IMG_DATA_FORMAT_BC3:
+	case GNM_IMG_DATA_FORMAT_BC4:
+	case GNM_IMG_DATA_FORMAT_BC5:
+	case GNM_IMG_DATA_FORMAT_BC6:
+	case GNM_IMG_DATA_FORMAT_BC7:
+		return true;
+	default:
+		return false;
+	}
+}
+
+uint8_t gnmGetBitsPerElement(const GnmImageFormat image_format);
+
 GnmDataFormat gnmDfInitFromZ(GnmZFormat zfmt);
 
 static inline GnmDataFormat gnmDfInitFromStencil(
@@ -57,31 +73,13 @@ static inline uint32_t gnmDfGetTexelsPerElement(const GnmDataFormat datafmt) {
 }
 
 uint32_t gnmDfGetNumComponents(const GnmDataFormat datafmt);
-uint32_t gnmDfGetBitsPerElement(const GnmDataFormat datafmt);
 static inline uint32_t gnmDfGetTotalBitsPerElement(const GnmDataFormat fmt) {
-	const uint32_t bitsperelem = gnmDfGetBitsPerElement(fmt);
+	const uint32_t bitsperelem = gnmGetBitsPerElement(fmt.surfacefmt);
 	const uint32_t texelsperelem = gnmDfGetTexelsPerElement(fmt);
 	return bitsperelem * texelsperelem;
 }
-static inline uint32_t gnmDfGetBytesPerElement(const GnmDataFormat datafmt) {
-	return gnmDfGetBitsPerElement(datafmt) / 8;
-}
 static inline uint32_t gnmDfGetTotalBytesPerElement(const GnmDataFormat fmt) {
 	return gnmDfGetTotalBitsPerElement(fmt) / 8;
-}
-static inline bool gnmDfIsBlockCompressed(const GnmDataFormat datafmt) {
-	switch (datafmt.surfacefmt) {
-	case GNM_IMG_DATA_FORMAT_BC1:
-	case GNM_IMG_DATA_FORMAT_BC2:
-	case GNM_IMG_DATA_FORMAT_BC3:
-	case GNM_IMG_DATA_FORMAT_BC4:
-	case GNM_IMG_DATA_FORMAT_BC5:
-	case GNM_IMG_DATA_FORMAT_BC6:
-	case GNM_IMG_DATA_FORMAT_BC7:
-		return true;
-	default:
-		return false;
-	}
 }
 
 bool gnmDfGetRtChannelType(const GnmDataFormat datafmt, GnmSurfaceNumber* out);

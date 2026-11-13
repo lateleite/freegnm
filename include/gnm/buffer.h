@@ -138,7 +138,7 @@ static inline GnmBuffer gnmCreateConstBuffer(
 static inline GnmBuffer gnmCreateVertexBuffer(
     void* baseaddr, GnmDataFormat fmt, uint32_t stride, uint32_t numelements
 ) {
-	const uint32_t elementbytesize = gnmDfGetBytesPerElement(fmt);
+	const uint32_t elementbytesize = gnmGetBitsPerElement(fmt.surfacefmt) / 8;
 	const uint32_t minalignment =
 	    (elementbytesize > 4 ? elementbytesize : 4) - 1;
 	if ((uintptr_t)baseaddr & minalignment) {

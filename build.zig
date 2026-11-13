@@ -1,6 +1,8 @@
 const std = @import("std");
 const orbis = @import("orbis");
 
+const Translator = @import("translate_c").Translator;
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -9,8 +11,13 @@ pub fn build(b: *std.Build) void {
 
     const use_pic = b.option(bool, "pic", "Produce Position Independent Code");
 
-    const c_gcn = b.addTranslateC(.{
-        .root_source_file = b.path("include/gnm/gcn/gcn.h"),
+    //
+    // dependencies
+    //
+    const translate_c = b.dependency("translate_c", .{});
+
+    const c_gcn: Translator = .init(translate_c, .{
+        .c_source_file = b.path("include/gnm/gcn/gcn.h"),
         .target = target,
         .optimize = optimize,
         .link_libc = false,
@@ -22,7 +29,7 @@ pub fn build(b: *std.Build) void {
     const mod_gnm = b.addModule("gnm", .{
         .root_source_file = b.path("src/gnm.zig"),
         .imports = &.{
-            .{ .name = "c_gcn", .module = c_gcn.createModule() },
+            .{ .name = "c_gcn", .module = c_gcn.mod },
         },
         .target = target,
         .optimize = optimize,

@@ -31,19 +31,19 @@ FnfError fnfPngLoad(
 	}
 
 	const GnmTextureCreateInfo outtexspec = {
-	    .texturetype = GNM_TEXTURE_2D,
+	    .texture_type = GNM_TEXTURE_2D,
 	    .width = x,
 	    .height = y,
 	    .depth = 1,
 	    .pitch = x,
 
-	    .nummiplevels = 1,
-	    .numslices = 1,
+	    .num_mip_levels = 1,
+	    .num_slices = 1,
 
 	    .format = desiredfmt,
-	    .tilemodehint = GNM_TM_DISPLAY_LINEAR_GENERAL,
-	    .mingpumode = GNM_GPU_BASE,
-	    .numfragments = 1,
+	    .tile_mode_hint = GNM_TM_DISPLAY_LINEAR_GENERAL,
+	    .min_gpu_mode = GNM_GPU_BASE,
+	    .num_fragments = 1,
 	};
 	GnmError gnmerr = gnmCreateTexture(out_tex, &outtexspec);
 	if (gnmerr != GNM_ERROR_OK) {
@@ -71,7 +71,7 @@ FnfError fnfPngStore(
 	const uint32_t width = umax(gnmTexGetWidth(texture) >> surfidx->mip, 1);
 	const uint32_t height =
 	    umax(gnmTexGetHeight(texture) >> surfidx->mip, 1);
-	const uint32_t bytesperelem = gnmDfGetBytesPerElement(fmt);
+	const uint32_t bytesperelem = gnmGetBitsPerElement(fmt.surfacefmt) / 8;
 	const uint32_t numcomponents = gnmDfGetNumComponents(fmt);
 
 	const size_t reqinsize = width * height * bytesperelem;

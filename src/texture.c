@@ -9,9 +9,9 @@ static inline GpaError tex_calcswizzlemask(
     uint32_t* outmask, const GnmTexture* tex
 ) {
 	const GnmGpuMode gpumode = gnmGpuMode();
-	const GnmTileMode tm = tex->tilingindex;
+	const GnmTileMode tm = tex->tiling_index;
 	const GnmDataFormat fmt = gnmTexGetFormat(tex);
-	const uint32_t bitsperelem = gnmDfGetBitsPerElement(fmt);
+	const uint32_t bitsperelem = gnmGetBitsPerElement(fmt.surfacefmt);
 	const uint8_t numfrags = gnmTexGetNumFragments(tex);
 
 	return gpaComputeBaseSwizzle(
@@ -29,7 +29,7 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 		);
 	}
 
-	if (!ci->nummiplevels) {
+	if (!ci->num_mip_levels) {
 		gnmWriteMsg(
 		    GNM_MSGSEV_ERR, "nummiplevels must be greater than 0"
 		);
@@ -54,11 +54,11 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 		return GNM_ERROR_INVALID_ARGS;
 	}
 
-	tex->pow2pad = ci->nummiplevels > 1;
+	tex->power_of_2_pad = ci->num_mip_levels > 1;
 	tex->mtype2 = 1;
-	tex->type = ci->texturetype;
+	tex->type = ci->texture_type;
 
-	switch (ci->texturetype) {
+	switch (ci->texture_type) {
 	case GNM_TEXTURE_1D:
 	case GNM_TEXTURE_1D_ARRAY:
 		if (ci->height != 1) {
@@ -75,7 +75,7 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 			);
 			return GNM_ERROR_INVALID_ARGS;
 		}
-		if (ci->numfragments != 1) {
+		if (ci->num_fragments != 1) {
 			gnmWriteMsg(
 			    GNM_MSGSEV_ERR,
 			    "numfragments must be 1 if texturetype is 1D"
@@ -92,7 +92,7 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 			);
 			return GNM_ERROR_INVALID_ARGS;
 		}
-		if (ci->numfragments > 1) {
+		if (ci->num_fragments > 1) {
 			gnmWriteMsg(
 			    GNM_MSGSEV_ERR,
 			    "if numfragments is larger than 1, texturetype "
@@ -102,14 +102,14 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 		}
 		break;
 	case GNM_TEXTURE_3D:
-		if (ci->numslices != 1) {
+		if (ci->num_slices != 1) {
 			gnmWriteMsg(
 			    GNM_MSGSEV_ERR,
 			    "numslices must be 1 if texturetype is 2D"
 			);
 			return GNM_ERROR_INVALID_ARGS;
 		}
-		if (ci->numfragments != 1) {
+		if (ci->num_fragments != 1) {
 			gnmWriteMsg(
 			    GNM_MSGSEV_ERR,
 			    "numfragments must be 1 if texturetype is 2D"
@@ -119,7 +119,7 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 		break;
 	case GNM_TEXTURE_2D_MSAA:
 	case GNM_TEXTURE_2D_ARRAY_MSAA:
-		if (ci->numfragments <= 1) {
+		if (ci->num_fragments <= 1) {
 			gnmWriteMsg(
 			    GNM_MSGSEV_ERR,
 			    "numfragments must be larger than "
@@ -133,7 +133,7 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 		break;
 	default:
 		gnmWriteMsgf(
-		    GNM_MSGSEV_ERR, "Unknown texturetype %u", ci->texturetype
+		    GNM_MSGSEV_ERR, "Unknown texturetype %u", ci->texture_type
 		);
 		return GNM_ERROR_INTERNAL_FAILURE;
 	}
@@ -142,31 +142,31 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 	    gnmDfGetTotalBitsPerElement(ci->format);
 	const uint32_t texelsperelem = gnmDfGetTexelsPerElement(ci->format);
 
-	const GpaTilingParams tp = {
-	    .tilemode = ci->tilemodehint,
-	    .mingpumode = ci->mingpumode,
+	const GpaSurfaceDescription desc = {
+	    .tile_mode = ci->tile_mode_hint,
+	    .image_format = ci->format.surfacefmt,
+	    .min_gpu_mode = ci->min_gpu_mode,
 
-	    .linearwidth = ci->width,
-	    .linearheight = ci->height,
-	    .lineardepth = ci->depth,
-	    .numfragsperpixel = 1 << ci->numfragments,
-	    .basetiledpitch = ci->pitch,
+	    .linear_width = ci->width,
+	    .linear_height = ci->height,
+	    .linear_depth = ci->depth,
+	    .base_tiled_pitch = ci->pitch,
 
-	    .miplevel = 0,
-	    .arrayslice = 0,
-	    .surfaceflags =
-		{
-		    .cube = ci->texturetype == GNM_TEXTURE_CUBEMAP,
-		    .volume = ci->texturetype == GNM_TEXTURE_3D,
-		    .pow2pad = ci->nummiplevels > 1,
-		    .texcompatible = ci->mingpumode == GNM_GPU_NEO,
-		},
-	    .bitsperfrag = totalbitsperelem / texelsperelem,
-	    .isblockcompressed = texelsperelem > 1,
+	    .num_frags_per_pixel = 1 << ci->num_fragments,
+	    .bits_per_frag = totalbitsperelem / texelsperelem,
+
+	    .mip_level = 0,
+	    .array_slice = 0,
+	    .flags = {
+		.cube = ci->texture_type == GNM_TEXTURE_CUBEMAP,
+		.volume = ci->texture_type == GNM_TEXTURE_3D,
+		.power_of_2_pad = ci->num_mip_levels > 1,
+		.tc_compatible = ci->min_gpu_mode == GNM_GPU_NEO,
+	    },
 	};
 
 	GpaSurfaceInfo surfinfo = {0};
-	GpaError err = gpaComputeSurfaceInfo(&surfinfo, &tp);
+	GpaError err = gpaComputeSurfaceInfo(&surfinfo, &desc);
 	if (err != GPA_ERR_OK) {
 		gnmWriteMsgf(
 		    GNM_MSGSEV_ERR, "Failed to compute surface info with %s",
@@ -182,32 +182,32 @@ GnmError gnmCreateTexture(GnmTexture* tex, const GnmTextureCreateInfo* ci) {
 	gnmTexSetFormat(tex, ci->format);
 
 	const uint32_t realdepth =
-	    ci->texturetype == GNM_TEXTURE_3D ? ci->depth : ci->numslices;
+	    ci->texture_type == GNM_TEXTURE_3D ? ci->depth : ci->num_slices;
 	gnmTexSetDepth(tex, realdepth);
 
 	// setArrayView
-	const uint32_t numslices = ci->texturetype == GNM_TEXTURE_CUBEMAP
-				       ? ci->numslices * 6
-				       : ci->numslices;
-	tex->basearray = 0;
-	tex->lastarray = numslices;
+	const uint32_t numslices = ci->texture_type == GNM_TEXTURE_CUBEMAP
+				       ? ci->num_slices * 6
+				       : ci->num_slices;
+	tex->base_array = 0;
+	tex->last_array = numslices;
 
 	// setMipLevelRange
-	tex->baselevel = 0;
-	tex->lastlevel = ci->nummiplevels - 1;
+	tex->base_level = 0;
+	tex->last_level = ci->num_mip_levels - 1;
 	// setMinLodClamp
 	// setNumFragments
-	tex->minlod = 0;
+	tex->min_lod = 0;
 	// NOTE: this is only valid for 2D (Array) MSAA textures
-	if (ci->numfragments > 1) {
-		tex->lastlevel = ci->numfragments >> 1;
+	if (ci->num_fragments > 1) {
+		tex->last_level = ci->num_fragments >> 1;
 	}
 	// setTileMode
-	tex->tilingindex = surfinfo.tilemode;
+	tex->tiling_index = surfinfo.tile_mode;
 	// setUseAltTileMode
-	tex->alttilemode = ci->mingpumode == GNM_GPU_NEO;
+	tex->alt_tile_mode = ci->min_gpu_mode == GNM_GPU_NEO;
 	// setSamplerModulationFactor
-	tex->perfmod = GNM_TEX_PERFMOD_MAX;
+	tex->perf_mod = GNM_PERFMOD_MAX;
 
 	return GNM_ERROR_OK;
 }
@@ -228,28 +228,28 @@ GnmError gnmTexCalcByteSize(
 	    .depth = gnmTexGetDepth(tex),
 	    .pitch = gnmTexGetPitch(tex),
 
-	    .numfrags = gnmTexGetNumFragments(tex),
-	    .nummips = gnmTexGetNumMips(tex),
-	    .numslices = gnmTexGetNumArraySlices(tex),
+	    .num_frags = gnmTexGetNumFragments(tex),
+	    .num_mips = gnmTexGetNumMips(tex),
+	    .num_slices = gnmTexGetNumArraySlices(tex),
 
-	    .tm = tex->tilingindex,
-	    .mingpumode = tex->alttilemode ? GNM_GPU_NEO : GNM_GPU_BASE,
+	    .tile_mode = tex->tiling_index,
+	    .min_gpu_mode = tex->alt_tile_mode ? GNM_GPU_NEO : GNM_GPU_BASE,
 
-	    .pow2pad = tex->pow2pad,
+	    .power_of_2_pad = tex->power_of_2_pad,
 	};
 
-	GpaTilingParams tp = {0};
-	GpaError err = gpaTpInit(&tp, &texinfo, 0, 0);
+	GpaSurfaceDescription tp = {0};
+	GpaError err = gpaSurfaceDescInit(&tp, &texinfo, 0, 0);
 	if (err != GPA_ERR_OK) {
 		return GNM_ERROR_INVALID_STATE;
 	}
 
 	GpaSurfaceInfo surfinfo = {0};
-	for (uint32_t i = 0; i < texinfo.nummips; i += 1) {
-		tp.linearwidth = umax(texinfo.width >> i, 1);
-		tp.linearheight = umax(texinfo.height >> i, 1);
-		tp.lineardepth = umax(texinfo.depth >> i, 1);
-		tp.miplevel = i;
+	for (uint32_t i = 0; i < texinfo.num_mips; i += 1) {
+		tp.linear_width = umax(texinfo.width >> i, 1);
+		tp.linear_height = umax(texinfo.height >> i, 1);
+		tp.linear_depth = umax(texinfo.depth >> i, 1);
+		tp.mip_level = i;
 
 		err = gpaComputeSurfaceInfo(&surfinfo, &tp);
 		if (err != GPA_ERR_OK) {
@@ -257,14 +257,14 @@ GnmError gnmTexCalcByteSize(
 		}
 
 		if (outsize) {
-			*outsize += texinfo.numslices * surfinfo.surfacesize;
+			*outsize += texinfo.num_slices * surfinfo.surface_byte_size;
 		}
 		if (outalignment) {
-			*outalignment = umax(*outalignment, surfinfo.basealign);
+			*outalignment = umax(*outalignment, surfinfo.base_align);
 		}
 
-		if (tp.linearwidth == 1 && tp.linearheight == 1 &&
-		    tp.lineardepth == 1) {
+		if (tp.linear_width == 1 && tp.linear_height == 1 &&
+		    tp.linear_depth == 1) {
 			break;
 		}
 	}
@@ -279,7 +279,7 @@ uint32_t gnmTexGetNumArraySlices(const GnmTexture* tex) {
 	} else if (tex->type == GNM_TEXTURE_3D) {
 		numarrayslices = 1;
 	}
-	if (tex->pow2pad) {
+	if (tex->power_of_2_pad) {
 		numarrayslices = NextPow2(numarrayslices);
 	}
 	return numarrayslices;
@@ -299,7 +299,7 @@ void gnmTexSetBaseAddress(GnmTexture* tex, void* baseaddr) {
 	uint32_t swizzlemask = 0;
 	GpaError err = tex_calcswizzlemask(&swizzlemask, tex);
 	if (err == GPA_ERR_OK) {
-		addr = (addr & ~swizzlemask) | (tex->baseaddress & swizzlemask);
+		addr = (addr & ~swizzlemask) | (tex->base_address & swizzlemask);
 	} else {
 		gnmWriteMsgf(
 		    GNM_MSGSEV_WARN,
@@ -308,5 +308,5 @@ void gnmTexSetBaseAddress(GnmTexture* tex, void* baseaddr) {
 		);
 	}
 
-	tex->baseaddress = addr;
+	tex->base_address = addr;
 }
