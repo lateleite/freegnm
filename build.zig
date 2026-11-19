@@ -82,7 +82,6 @@ pub fn build(b: *std.Build) void {
     const exe_gnf_conv = addTool(b, "gnf-conv", &C_SOURCES_GNF_CONV, lib_gnm, target, optimize);
     const exe_gnf_info = addTool(b, "gnf-info", &C_SOURCES_GNF_INFO, lib_gnm, target, optimize);
     const exe_gnf_mk = addTool(b, "gnf-mk", &C_SOURCES_GNF_MK, lib_gnm, target, optimize);
-    const exe_pm4_dis = addTool(b, "pm4-dis", &C_SOURCES_PM4_DIS, lib_gnm, target, optimize);
 
     const exe_gcn_dis = b.addExecutable(.{
         .name = "gcn-dis",
@@ -96,7 +95,17 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-
+    const exe_pm4_dis = b.addExecutable(.{
+        .name = "pm4-dis",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("cmd/pm4-dis/main.zig"),
+            .imports = &.{
+                .{ .name = "gnm", .module = mod_gnm },
+            },
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
     const exe_psb_dis = b.addExecutable(.{
         .name = "psb-dis",
         .root_module = b.createModule(.{
@@ -152,7 +161,6 @@ pub fn build(b: *std.Build) void {
             "test/tests_gcn.c",
             "test/tests_gnf.c",
             "test/tests_gpuaddr.c",
-            "test/tests_pm4.c",
         },
         .flags = &C_FLAGS,
     });
@@ -241,10 +249,6 @@ const C_SOURCES = [_][]const u8{
     "src/gpuaddr/surfgen.c",
     "src/gpuaddr/tilemodes.c",
     "src/gpuaddr/tiler.c",
-    "src/pm4/decoder.c",
-    "src/pm4/error.c",
-    "src/pm4/format.c",
-    "src/pm4/types.c",
     "src/dataformat.c",
     "src/deps.c",
     "src/depthrendertarget.c",
@@ -262,7 +266,4 @@ const C_SOURCES_GNF_INFO = [_][]const u8{
 };
 const C_SOURCES_GNF_MK = [_][]const u8{
     "cmd/gnf-mk/main.c",
-};
-const C_SOURCES_PM4_DIS = [_][]const u8{
-    "cmd/pm4-dis/main.c",
 };

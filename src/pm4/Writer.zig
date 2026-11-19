@@ -3,7 +3,6 @@ const math = std.math;
 const mem = std.mem;
 const assert = std.debug.assert;
 
-const gnm = @import("../gnm.zig");
 const pm4 = @import("../pm4.zig");
 
 backing_memory: []u32,
@@ -99,11 +98,11 @@ pub fn allocInlineMany(
     };
 
     try self.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = dword_count,
         .info = .{ .pkt3 = .{
             .predicate = false,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .nop,
         } },
     }));

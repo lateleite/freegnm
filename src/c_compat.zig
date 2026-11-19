@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const math = std.math;
 const mem = std.mem;
 
@@ -1330,4 +1331,171 @@ pub const SetViewportInfo = extern struct {
     d_max: f32,
     scale: [3]f32,
     offset: [3]f32,
+};
+
+//
+// Pm4 Decoder
+//
+pub export fn pm4DecodePacket(
+    maybe_decoder: ?*Pm4Decoder,
+    maybe_out_packet: ?*Pm4Packet,
+    maybe_data_buffer: ?[*]u32,
+    num_data_dwords: u32,
+) Pm4Error {
+    const decoder = maybe_decoder orelse {
+        @branchHint(.unlikely);
+        return .invalid_arg;
+    };
+    const out_packet = maybe_out_packet orelse {
+        @branchHint(.unlikely);
+        return .invalid_arg;
+    };
+    const data_buffer_ptr = maybe_data_buffer orelse {
+        @branchHint(.unlikely);
+        return .invalid_arg;
+    };
+
+    const buffer = decoder.buffer orelse {
+        @branchHint(.unlikely);
+        return .uninitialized_context;
+    };
+
+    const cur_dwords = decoder.cur_dwords;
+    const max_dwords = decoder.max_dwords;
+
+    var reader: Io.Reader = .fixed(@ptrCast(buffer[0..max_dwords][cur_dwords..]));
+    var parser: pm4.Reader = .init(&reader);
+
+    const data_buffer = data_buffer_ptr[0..num_data_dwords];
+    const pkt = parser.next(data_buffer) catch |err| switch (err) {
+        error.BufferTooSmall => return .internal_error,
+        error.InvalidPacketKind => return .invalid_type,
+        error.InvalidPacketCount => return .pkt_too_small,
+        error.ReadFailed => return .overflow,
+        error.EndOfStream => return .end_of_code,
+    };
+
+    out_packet.* = .{
+        .type = @fromBackingInt(@backingInt(pkt.header.kind)),
+        .count = pkt.header.count,
+        .dword_offset = decoder.cur_dwords,
+        .data = switch (pkt.header.kind) {
+            else => unreachable,
+            .pkt0 => .{ .pkt0 = .{ .base_index = pkt.header.info.pkt0.base_index } },
+            .pkt2 => undefined,
+            .pkt3 => .{ .pkt3 = .{
+                .opcode = @backingInt(pkt.header.info.pkt3.it_opcode),
+                .shader_type = @fromBackingInt(@backingInt(pkt.header.info.pkt3.shader)),
+                .predicate = pkt.header.info.pkt3.predicate,
+            } },
+        },
+    };
+    decoder.cur_dwords = @intCast(cur_dwords + 1 + pkt.data.len);
+
+    return .ok;
+}
+
+pub export fn pm4FormatPacket(
+    maybe_decoder: ?*const Pm4Decoder,
+    maybe_packet: ?*const Pm4Packet,
+    maybe_out_buffer: ?[*:0]u8,
+    out_buffer_size: usize,
+) Pm4Error {
+    const decoder = maybe_decoder orelse {
+        @branchHint(.unlikely);
+        return .invalid_arg;
+    };
+    const packet = maybe_packet orelse {
+        @branchHint(.unlikely);
+        return .invalid_arg;
+    };
+    const out_buffer = maybe_out_buffer orelse {
+        @branchHint(.unlikely);
+        return .invalid_arg;
+    };
+    const decoder_buffer = decoder.buffer orelse {
+        @branchHint(.unlikely);
+        return .uninitialized_context;
+    };
+
+    if (packet.dword_offset + 1 >= decoder.max_dwords) {
+        @branchHint(.unlikely);
+        return .internal_error;
+    }
+
+    const converted_packet: pm4.Reader.Packet = .{
+        .header = .{
+            .kind = @fromBackingInt(@intCast(@backingInt(packet.type))),
+            .count = @intCast(packet.count),
+            .info = switch (packet.type) {
+                else => return .invalid_type,
+                .pkt0 => .{ .pkt0 = .{ .base_index = @intCast(packet.data.pkt0.base_index) } },
+                .pkt2 => undefined,
+                .pkt3 => .{ .pkt3 = .{
+                    .it_opcode = @fromBackingInt(@intCast(packet.data.pkt3.opcode)),
+                    .shader = @fromBackingInt(@intCast(@backingInt(packet.data.pkt3.shader_type))),
+                    .predicate = packet.data.pkt3.predicate,
+                } },
+            },
+        },
+        .data = decoder_buffer[packet.dword_offset + 1 ..][0 .. 2 + packet.count],
+    };
+
+    var writer: Io.Writer = .fixed(@ptrCast(out_buffer[0..out_buffer_size]));
+    writer.print("{f}", .{converted_packet}) catch {
+        return .buffer_too_small;
+    };
+    out_buffer[writer.end] = 0;
+
+    return .ok;
+}
+
+pub const Pm4Error = enum(c_uint) {
+    // not errors
+    ok = 0,
+    end_of_code,
+
+    // errors
+    buffer_too_small,
+    pkt_too_small,
+    invalid_arg,
+    invalid_type,
+    internal_error,
+    overflow,
+    uninitialized_context,
+};
+
+pub const Pm4Decoder = extern struct {
+    buffer: ?[*]const u32,
+    max_dwords: u32,
+    cur_dwords: u32,
+};
+
+pub const Pm4Packet = extern struct {
+    const PacketType = enum(c_uint) {
+        pkt0 = 0, // FIXME draw indexed, or is it setting registers?
+        pkt2 = 2, // nop packet
+        pkt3 = 3, // extended packet
+        _,
+    };
+
+    type: PacketType,
+    count: u32,
+    dword_offset: u32,
+
+    data: extern union {
+        pkt0: extern struct {
+            base_index: u32,
+        },
+        pkt3: extern struct {
+            const ShaderType = enum(c_uint) {
+                graphics = 0,
+                compute = 1,
+            };
+
+            opcode: u32,
+            shader_type: ShaderType,
+            predicate: bool,
+        },
+    },
 };

@@ -29,29 +29,29 @@ const SetRegisterError = error{TooManyValues} || pm4.Writer.WriteError;
 //
 fn setContextRegisterRange(
     self: *Self,
-    reg: gnm.ContextRegister,
+    reg: pm4.ContextRegister,
     values: []const u32,
 ) SetRegisterError!void {
     const num_values = math.cast(u14, values.len) orelse return error.TooManyValues;
 
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = num_values,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .set_context_reg,
         } },
     }));
-    try self.writer.writeDword((@backingInt(reg) - gnm.ContextRegisterOffset) >> 2);
+    try self.writer.writeDword(@backingInt(reg));
     for (values) |val| try self.writer.writeDword(val);
 }
-fn setContextRegister(self: *Self, reg: gnm.ContextRegister, value: u32) SetRegisterError!void {
+fn setContextRegister(self: *Self, reg: pm4.ContextRegister, value: u32) SetRegisterError!void {
     try self.setContextRegisterRange(reg, &[_]u32{value});
 }
 
 pub fn setBlendControl(self: *Self, rt_slot: u3, ctrl: gnm.CbBlendControl) SetRegisterError!void {
-    const reg: gnm.ContextRegister = switch (rt_slot) {
+    const reg: pm4.ContextRegister = switch (rt_slot) {
         0 => .cb_blend0_control,
         1 => .cb_blend1_control,
         2 => .cb_blend2_control,
@@ -96,11 +96,11 @@ pub fn setDepthRenderTarget(self: *Self, drt: gnm.DepthRenderTarget) SetDepthRen
     // hint for something
     // TODO: figure what for. maybe for the official GPU analysis tools?
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = 0,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .nop,
         } },
     }));
@@ -233,7 +233,7 @@ pub fn setRenderTarget(self: *Self, slot: u3, rt: gnm.RenderTarget) SetRegisterE
     const old_state = self.writer.saveState();
     errdefer self.writer.restoreState(old_state);
 
-    const reg: gnm.ContextRegister = switch (slot) {
+    const reg: pm4.ContextRegister = switch (slot) {
         0 => .cb_color0_base,
         1 => .cb_color1_base,
         2 => .cb_color2_base,
@@ -249,18 +249,18 @@ pub fn setRenderTarget(self: *Self, slot: u3, rt: gnm.RenderTarget) SetRegisterE
     // hint for something
     // TODO: figure what for. maybe for GPU replay tools?
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = 0,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .nop,
         } },
     }));
     try self.writer.writeDword(@bitCast(rt.size));
 }
 pub fn unsetRenderTarget(self: *Self, slot: u3) SetRegisterError!void {
-    const reg: gnm.ContextRegister = switch (slot) {
+    const reg: pm4.ContextRegister = switch (slot) {
         0 => .cb_color0_info,
         1 => .cb_color1_info,
         2 => .cb_color2_info,
@@ -301,7 +301,7 @@ pub fn setViewport(self: *Self, index: u4, viewport: ViewportInfo) SetRegisterEr
     const old_state = self.writer.saveState();
     errdefer self.writer.restoreState(old_state);
 
-    const depth_register: gnm.ContextRegister = switch (index) {
+    const depth_register: pm4.ContextRegister = switch (index) {
         0 => .pa_sc_vport_zmin_0,
         1 => .pa_sc_vport_zmin_1,
         2 => .pa_sc_vport_zmin_2,
@@ -322,23 +322,23 @@ pub fn setViewport(self: *Self, index: u4, viewport: ViewportInfo) SetRegisterEr
     const depth_values = [_]u32{ @bitCast(viewport.z_min), @bitCast(viewport.z_max) };
     try self.setContextRegisterRange(depth_register, &depth_values);
 
-    const scale_offset_register: gnm.ContextRegister = switch (index) {
-        0 => .pa_cl_vport_x_scale,
-        1 => .pa_cl_vport_x_scale_1,
-        2 => .pa_cl_vport_x_scale_2,
-        3 => .pa_cl_vport_x_scale_3,
-        4 => .pa_cl_vport_x_scale_4,
-        5 => .pa_cl_vport_x_scale_5,
-        6 => .pa_cl_vport_x_scale_6,
-        7 => .pa_cl_vport_x_scale_7,
-        8 => .pa_cl_vport_x_scale_8,
-        9 => .pa_cl_vport_x_scale_9,
-        10 => .pa_cl_vport_x_scale_10,
-        11 => .pa_cl_vport_x_scale_11,
-        12 => .pa_cl_vport_x_scale_12,
-        13 => .pa_cl_vport_x_scale_13,
-        14 => .pa_cl_vport_x_scale_14,
-        15 => .pa_cl_vport_x_scale_15,
+    const scale_offset_register: pm4.ContextRegister = switch (index) {
+        0 => .pa_cl_vport_xscale,
+        1 => .pa_cl_vport_xscale_1,
+        2 => .pa_cl_vport_xscale_2,
+        3 => .pa_cl_vport_xscale_3,
+        4 => .pa_cl_vport_xscale_4,
+        5 => .pa_cl_vport_xscale_5,
+        6 => .pa_cl_vport_xscale_6,
+        7 => .pa_cl_vport_xscale_7,
+        8 => .pa_cl_vport_xscale_8,
+        9 => .pa_cl_vport_xscale_9,
+        10 => .pa_cl_vport_xscale_10,
+        11 => .pa_cl_vport_xscale_11,
+        12 => .pa_cl_vport_xscale_12,
+        13 => .pa_cl_vport_xscale_13,
+        14 => .pa_cl_vport_xscale_14,
+        15 => .pa_cl_vport_xscale_15,
     };
     const scale_offset_values = [_]u32{
         @bitCast(viewport.vport.x_scale),
@@ -360,28 +360,28 @@ pub fn setViewportTransformControl(self: *Self, ctrl: gnm.PaClVteCntl) SetRegist
 //
 fn setPersistentRegisterRange(
     self: *Self,
-    reg: gnm.ShRegister,
+    reg: pm4.ShRegister,
     values: []const u32,
 ) SetRegisterError!void {
     const num_values = math.cast(u14, values.len) orelse return error.TooManyValues;
 
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = num_values,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .set_sh_reg,
         } },
     }));
-    try self.writer.writeDword((@backingInt(reg) - gnm.ShRegisterOffset) >> 2);
+    try self.writer.writeDword(@backingInt(reg));
     for (values) |val| try self.writer.writeDword(val);
 }
 
 pub const UserDataError = error{InvalidSlot} || SetRegisterError;
 
-fn getUserDataSlotRegister(stage: gnm.ShaderStage, slot: u4) UserDataError!gnm.ShRegister {
-    const first_register: gnm.ShRegister = switch (stage) {
+fn getUserDataSlotRegister(stage: gnm.ShaderStage, slot: u4) UserDataError!pm4.ShRegister {
+    const first_register: pm4.ShRegister = switch (stage) {
         .cs => .compute_user_data_0,
         .ps => .spi_shader_user_data_ps_0,
         .vs => .spi_shader_user_data_vs_0,
@@ -390,7 +390,7 @@ fn getUserDataSlotRegister(stage: gnm.ShaderStage, slot: u4) UserDataError!gnm.S
         .hs => .spi_shader_user_data_hs_0,
         .ls => .spi_shader_user_data_ls_0,
     };
-    const last_register: gnm.ShRegister = switch (stage) {
+    const last_register: pm4.ShRegister = switch (stage) {
         .cs => .compute_user_data_15,
         .ps => .spi_shader_user_data_ps_15,
         .vs => .spi_shader_user_data_vs_15,
@@ -399,7 +399,7 @@ fn getUserDataSlotRegister(stage: gnm.ShaderStage, slot: u4) UserDataError!gnm.S
         .hs => .spi_shader_user_data_hs_15,
         .ls => .spi_shader_user_data_ls_15,
     };
-    const slot_register = @backingInt(first_register) + (@as(u32, slot) * @sizeOf(u32));
+    const slot_register = @backingInt(first_register) + slot;
     if (slot_register > @backingInt(last_register)) return error.InvalidSlot;
     return @fromBackingInt(@intCast(slot_register));
 }
@@ -421,11 +421,11 @@ pub fn setUserDataBuffer(
     // hint for something
     // TODO: figure what for. maybe for GPU replay tools?
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = 0,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .nop,
         } },
     }));
@@ -478,11 +478,11 @@ pub fn setUserDataSampler(
     // hint for something
     // TODO: figure what for. maybe for GPU replay tools?
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = 0,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .nop,
         } },
     }));
@@ -510,11 +510,11 @@ pub fn setUserDataTexture(
     // hint for something
     // TODO: figure what for. maybe for GPU replay tools?
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = 0,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .nop,
         } },
     }));
@@ -530,24 +530,24 @@ pub fn setUserDataTexture(
 //
 fn setUserRegisterRange(
     self: *Self,
-    reg: gnm.UConfigRegister,
+    reg: pm4.UConfigRegister,
     values: []const u32,
 ) SetRegisterError!void {
     const num_values = math.cast(u14, values.len) orelse return error.TooManyValues;
 
     try self.writer.writeDword(@bitCast(pm4.Header{
-        .type = .pkt3,
+        .kind = .pkt3,
         .count = num_values,
         .info = .{ .pkt3 = .{
             .predicate = self.flags.predication_enabled,
-            .shader_type = .graphics,
+            .shader = .graphics,
             .it_opcode = .set_uconfig_reg,
         } },
     }));
-    try self.writer.writeDword((@backingInt(reg) - gnm.UConfigRegisterOffset) >> 2);
+    try self.writer.writeDword(@backingInt(reg));
     for (values) |val| try self.writer.writeDword(val);
 }
-fn setUserRegister(self: *Self, reg: gnm.UConfigRegister, value: u32) SetRegisterError!void {
+fn setUserRegister(self: *Self, reg: pm4.UConfigRegister, value: u32) SetRegisterError!void {
     try self.setUserRegisterRange(reg, &[_]u32{value});
 }
 
@@ -611,11 +611,11 @@ pub fn eventWriteEop(
 
     const packet: CmdEventWriteEop = .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdEventWriteEop) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .event_write_eop,
             } },
         },
@@ -681,11 +681,11 @@ pub fn eventWriteEos(
     for (0..2) |_| {
         try self.writer.writeStruct(CmdEventWriteEos, .{
             .header = .{
-                .type = .pkt3,
+                .kind = .pkt3,
                 .count = (@sizeOf(CmdEventWriteEos) / @sizeOf(u32)) - 2,
                 .info = .{ .pkt3 = .{
                     .predicate = self.flags.predication_enabled,
-                    .shader_type = if (event == .cs_done) .compute else .graphics,
+                    .shader = if (event == .cs_done) .compute else .graphics,
                     .it_opcode = .event_write_eos,
                 } },
             },
@@ -719,11 +719,11 @@ pub fn waitOnAddress(
 
     try self.writer.writeStruct(CmdWaitRegMem, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdWaitRegMem) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .wait_reg_mem,
             } },
         },
@@ -770,11 +770,11 @@ pub fn waitGraphicsWrites(
 ) pm4.Writer.WriteError!void {
     try self.writer.writeStruct(CmdAcquireMem, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdAcquireMem) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .acquire_mem,
             } },
         },
@@ -842,11 +842,11 @@ pub fn writeDataInline(
 
     const packet: CmdWriteData = .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = packet_count,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .write_data,
             } },
         },
@@ -884,11 +884,11 @@ pub fn flushShaderCachesBlocking(
 ) pm4.Writer.WriteError!void {
     try self.writer.writeStruct(CmdAcquireMem, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdAcquireMem) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .acquire_mem,
             } },
         },
@@ -1067,11 +1067,11 @@ pub fn dispatch(
     } else {
         const packet: CmdDispatchDirect = .{
             .header = .{
-                .type = .pkt3,
+                .kind = .pkt3,
                 .count = (@sizeOf(CmdDispatchDirect) / @sizeOf(u32)) - 2,
                 .info = .{ .pkt3 = .{
                     .predicate = self.flags.predication_enabled,
-                    .shader_type = .compute,
+                    .shader = .compute,
                     .it_opcode = .dispatch_direct,
                 } },
             },
@@ -1086,11 +1086,11 @@ pub fn dispatch(
         };
         try self.writer.writeStruct(CmdDispatchDirect, packet);
         try self.writer.writeDword(@bitCast(pm4.Header{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = num_cmd_dwords - (self.writer.current_dword - old_state),
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .nop,
             } },
         }));
@@ -1182,11 +1182,11 @@ pub fn setCsShader(self: *Self, registers: gnm.CsStageRegisters) DriverError!voi
         };
         try self.setPersistentRegisterRange(.compute_num_thread_x, &num_threads);
         try self.writer.writeDword(@bitCast(pm4.Header{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = num_cmd_dwords - (self.writer.current_dword - old_state),
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .nop,
             } },
         }));
@@ -1238,11 +1238,11 @@ pub fn setIndexBuffer(
 
     try self.writer.writeStruct(CmdDrawIndexBase, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdDrawIndexBase) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .index_base,
             } },
         },
@@ -1260,11 +1260,11 @@ pub fn setIndexCount(
 ) pm4.Writer.WriteError!void {
     try self.writer.writeStruct(CmdDrawIndexBufferSize, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdDrawIndexBufferSize) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .index_buffer_size,
             } },
         },
@@ -1279,11 +1279,11 @@ pub fn setIndexSize(
 ) pm4.Writer.WriteError!void {
     try self.writer.writeStruct(CmdDrawIndexType, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdDrawIndexType) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .index_type,
             } },
         },
@@ -1329,11 +1329,11 @@ fn setBase(
 
     try self.writer.writeStruct(CmdDrawSetBase, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdDrawSetBase) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .set_base,
             } },
         },
@@ -1348,11 +1348,11 @@ fn setBase(
 pub fn setNumInstances(self: *Self, count: u32) SetBaseError!void {
     try self.writer.writeStruct(CmdDrawNumInstances, .{
         .header = .{
-            .type = .pkt3,
+            .kind = .pkt3,
             .count = (@sizeOf(CmdDrawNumInstances) / @sizeOf(u32)) - 2,
             .info = .{ .pkt3 = .{
                 .predicate = self.flags.predication_enabled,
-                .shader_type = .graphics,
+                .shader = .graphics,
                 .it_opcode = .num_instances,
             } },
         },
