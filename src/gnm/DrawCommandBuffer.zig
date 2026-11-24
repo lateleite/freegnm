@@ -1877,7 +1877,13 @@ test "dcb usage" {
 
     const gpu_mode: gnm.GpuMode = .base;
     const color_fmt: gnm.DataFormat = .r8g8b8a8_srgb;
-    const surf_info = try gpa.findOptimalSurface(.color_display, color_fmt.surface.getBitsPerElement(), 1, false, gpu_mode);
+    const surf_info = try gpa.findOptimalSurface(.{
+        .surface_type = .color_display,
+        .bits_per_pixel = color_fmt.surface.getBitsPerElement(),
+        .num_fragments = 1,
+        .is_mip_mapped = false,
+        .min_gpu_mode = gpu_mode,
+    });
 
     var rt = try gnm.RenderTarget.create(.{
         .format = color_fmt,
@@ -1887,7 +1893,7 @@ test "dcb usage" {
         .num_slices = 1,
         .num_samples = 1,
         .num_fragments = 1,
-        .tile_mode_hint = @fromBackingInt(@as(u5, @intCast(@as(c_uint, @intCast(surf_info.tile_mode))))), // yuck
+        .tile_mode_hint = surf_info.tile_mode,
         .min_gpu_mode = gpu_mode,
     });
 

@@ -578,6 +578,9 @@ static GpaError ComputeSurfaceInfoLinear(
 		}
 	}
 
+	out->block_width = 1;
+	out->block_height = 1;
+
 	out->depth_align = microTileThickness;
 
 	//
@@ -794,6 +797,10 @@ static GpaError ComputeSurfaceInfoMicroTiled(
 	    pIn->flags, &pOut->base_align, &pOut->pitch_align,
 	    &pOut->height_align
 	);
+
+
+	pOut->block_width = MicroTileWidth;
+	pOut->block_height = MicroTileHeight;
 
 	pOut->depth_align = microTileThickness;
 
@@ -1016,6 +1023,8 @@ static GpaError DispatchComputeSurfaceInfo(
 	default:
 		return GPA_ERR_INTERNAL_ERROR;
 	}
+
+	out->bpp = params->bits_per_frag;
 
 	return err;
 }

@@ -133,12 +133,13 @@ typedef struct {
 	uint32_t height;
 	uint32_t depth;
 	uint64_t surface_byte_size;
+
 	uint32_t base_align;
 	uint32_t pitch_align;
 	uint32_t height_align;
 	uint32_t depth_align;
-	uint32_t bpp;
 
+	uint32_t bpp;
 	uint32_t block_width;
 	uint32_t block_height;
 
