@@ -73,7 +73,7 @@ pub fn allocInlineMany(
     comptime T: type,
     count: u14,
     alignment: u16,
-) WriteError![]T {
+) WriteError![]align(4) T {
     assert(alignment != 0 and (alignment & 3) == 0);
 
     const length: u32 = @sizeOf(T) * count;
@@ -109,10 +109,10 @@ pub fn allocInlineMany(
     const memory = try self.reserveDwords(needed_dwords_data);
     const aligned_memory = memory[unaligned_dwords..];
 
-    return @as([*]T, @ptrCast(@alignCast(aligned_memory)))[0..count];
+    return @as([*]align(4) T, @ptrCast(@alignCast(aligned_memory)))[0..count];
 }
 
-pub fn allocInline(self: *Writer, comptime T: type, alignment: u16) WriteError!*T {
+pub fn allocInline(self: *Writer, comptime T: type, alignment: u16) WriteError!*align(4) T {
     const result = try self.allocInlineMany(T, 1, alignment);
     return &result[0];
 }
