@@ -63,7 +63,7 @@ pub const SurfaceType = enum(c_int) {
     rw_texture_cubemap,
 };
 
-pub const SurfaceInfo = extern struct {
+pub const SurfaceInfo = struct {
     pitch: u32,
     height: u32,
     depth: u32,
@@ -78,7 +78,7 @@ pub const SurfaceInfo = extern struct {
     block_width: u32,
     block_height: u32,
 
-    tile_mode: c_uint, // FIXME // gnm.TileMode
+    tile_mode: gnm.TileMode,
     tile_info: TileInfo,
 
     flags: packed struct(u32) {
@@ -107,26 +107,6 @@ pub const SurfaceProperties = struct {
     },
 };
 
-pub const TextureInfo = extern struct {
-    // type: gnm.TextureType, // FIXME
-    type: c_int,
-    format: gnm.DataFormat,
-
-    width: u32,
-    height: u32,
-    pitch: u32,
-    depth: u32,
-
-    num_fragments: u32,
-    num_mips: u32,
-    num_slices: u32,
-
-    tile_mode: c_uint, // gnm.TileMode, // FIXME
-    min_gpu_mode: c_uint, // gnm.GpuMode, // FIXME
-
-    power_of_2_pad: bool,
-};
-
 pub const Error = error{
     SomeError,
 };
@@ -134,9 +114,9 @@ pub const Error = error{
 extern fn gpaStrError(err: c_int) callconv(.c) [*c]const u8;
 
 const SurfaceDescriptionInternal = extern struct {
-    tile_mode: c_uint, // gnm.TileMode, // FIXME
-    image_format: c_uint, // gnm.ImageFormat // FIXME
-    min_gpu_mode: c_uint, // gnm.GpuMode, // FIXME
+    tile_mode: c_uint,
+    image_format: c_uint,
+    min_gpu_mode: c_uint,
 
     linear_width: u32,
     linear_height: u32,
@@ -151,10 +131,7 @@ const SurfaceDescriptionInternal = extern struct {
     flags: u32,
 };
 
-extern fn gpaComputeSurfaceInfo(out: *SurfaceInfo, tp: *const SurfaceDescriptionInternal) callconv(.c) c_int;
 pub fn computeSurfaceInfo(desc: SurfaceDescription) Error!SurfaceInfo {
-    var info: SurfaceInfo = undefined;
-
     const tp: SurfaceDescriptionInternal = .{
         .tile_mode = @backingInt(desc.tile_mode),
         .image_format = @backingInt(desc.image_format),
@@ -173,13 +150,59 @@ pub fn computeSurfaceInfo(desc: SurfaceDescription) Error!SurfaceInfo {
         .flags = @backingInt(desc.flags),
     };
 
+    var info: SurfaceInfoInternal = undefined;
     const result = gpaComputeSurfaceInfo(&info, &tp);
     if (result != 0) {
         log.err("gpaComputeSurfaceInfo failed with {s}", .{gpaStrError(result)});
         return error.SomeError;
     }
-    return info;
+
+    return .{
+        .pitch = info.pitch,
+        .height = info.height,
+        .depth = info.depth,
+        .surface_byte_size = info.surface_byte_size,
+
+        .base_alignment = info.base_alignment,
+        .pitch_alignment = info.pitch_alignment,
+        .height_alignment = info.height_alignment,
+        .depth_alignment = info.depth_alignment,
+
+        .bits_per_element = info.bits_per_element,
+        .block_width = info.block_width,
+        .block_height = info.block_height,
+
+        .tile_mode = @fromBackingInt(@intCast(info.tile_mode)),
+        .tile_info = info.tile_info,
+
+        .flags = @fromBackingInt(@backingInt(info.flags)),
+    };
 }
+extern fn gpaComputeSurfaceInfo(out: *SurfaceInfoInternal, tp: *const SurfaceDescriptionInternal) callconv(.c) c_int;
+
+const SurfaceInfoInternal = extern struct {
+    pitch: u32,
+    height: u32,
+    depth: u32,
+    surface_byte_size: u64,
+
+    base_alignment: u32,
+    pitch_alignment: u32,
+    height_alignment: u32,
+    depth_alignment: u32,
+
+    bits_per_element: u32,
+    block_width: u32,
+    block_height: u32,
+
+    tile_mode: c_uint,
+    tile_info: TileInfo,
+
+    flags: packed struct(u32) {
+        tc_compatible: bool,
+        _: u31,
+    },
+};
 
 pub fn findOptimalSurface(args: struct {
     surface_type: SurfaceType,
@@ -188,7 +211,7 @@ pub fn findOptimalSurface(args: struct {
     is_mip_mapped: bool,
     min_gpu_mode: gnm.GpuMode,
 }) Error!SurfaceProperties {
-    var props: SurfacePropertiesInt = undefined;
+    var props: SurfacePropertiesInternal = undefined;
     const result = gpaFindOptimalSurface(
         &props,
         args.surface_type,
@@ -208,7 +231,7 @@ pub fn findOptimalSurface(args: struct {
 }
 
 extern fn gpaFindOptimalSurface(
-    outprops: *SurfacePropertiesInt,
+    outprops: *SurfacePropertiesInternal,
     surfacetype: SurfaceType,
     bpp: u32,
     numfrags: u32,
@@ -216,31 +239,60 @@ extern fn gpaFindOptimalSurface(
     mingpumode: c_int,
 ) callconv(.c) c_int;
 
-const SurfacePropertiesInt = extern struct {
-    tile_mode: c_uint, // FIXME: gnm.TileMode
+const SurfacePropertiesInternal = extern struct {
+    tile_mode: c_uint,
     flags: u32,
 };
 
-extern fn gpaTileTextureAll(
-    inbuf: *const anyopaque,
-    inlen: usize,
-    outbuf: *anyopaque,
-    outlen: usize,
-    texinfo: *const TextureInfo,
-    newtiling: c_int,
-) callconv(.c) c_int;
+pub const TextureInfo = struct {
+    type: gnm.TextureType,
+    tile_mode: gnm.TileMode,
+    format: gnm.DataFormat,
+    min_gpu_mode: gnm.GpuMode,
+
+    width: u32,
+    height: u32,
+    depth: u32,
+    pitch: u32,
+
+    num_fragments: u32,
+    num_mips: u32,
+    num_slices: u32,
+
+    power_of_2_pad: bool,
+};
+
 pub fn tileTextureAll(
     input: []const u8,
     output: []u8,
     tex_info: TextureInfo,
     new_tile_mode: gnm.TileMode,
 ) Error!void {
+    const int_info: TextureInfoInternal = .{
+        .type = @backingInt(tex_info.type),
+        .format = tex_info.format,
+
+        .width = tex_info.width,
+        .height = tex_info.height,
+        .pitch = tex_info.pitch,
+        .depth = tex_info.depth,
+
+        .num_fragments = tex_info.num_fragments,
+        .num_mips = tex_info.num_mips,
+        .num_slices = tex_info.num_slices,
+
+        .tile_mode = @backingInt(tex_info.tile_mode),
+        .min_gpu_mode = @backingInt(tex_info.min_gpu_mode),
+
+        .power_of_2_pad = tex_info.power_of_2_pad,
+    };
+
     const result = gpaTileTextureAll(
         input.ptr,
         input.len,
         output.ptr,
         output.len,
-        &tex_info,
+        &int_info,
         @backingInt(new_tile_mode),
     );
     if (result != 0) {
@@ -249,7 +301,100 @@ pub fn tileTextureAll(
     }
 }
 
+extern fn gpaTileTextureAll(
+    inbuf: *const anyopaque,
+    inlen: usize,
+    outbuf: *anyopaque,
+    outlen: usize,
+    texinfo: *const TextureInfoInternal,
+    newtiling: c_uint,
+) callconv(.c) c_int;
+
+const TextureInfoInternal = extern struct {
+    type: c_uint,
+    format: gnm.DataFormat,
+
+    width: u32,
+    height: u32,
+    pitch: u32,
+    depth: u32,
+
+    num_fragments: u32,
+    num_mips: u32,
+    num_slices: u32,
+
+    tile_mode: c_uint,
+    min_gpu_mode: c_uint,
+
+    power_of_2_pad: bool,
+};
+
+pub fn tileSurface(
+    input: []const u8,
+    output: []u8,
+    surf_desc: SurfaceDescription,
+    desired_tile_mode: gnm.TileMode,
+) Error!void {
+    const src_desc: SurfaceDescriptionInternal = .{
+        .tile_mode = @backingInt(surf_desc.tile_mode),
+        .image_format = @backingInt(surf_desc.image_format),
+        .min_gpu_mode = @backingInt(surf_desc.min_gpu_mode),
+
+        .linear_width = surf_desc.linear_width,
+        .linear_height = surf_desc.linear_height,
+        .linear_depth = surf_desc.linear_depth,
+        .base_tiled_pitch = surf_desc.base_tiled_pitch,
+
+        .num_fragments_per_pixel = surf_desc.num_fragments_per_pixel,
+        .bits_per_fragment = surf_desc.bits_per_fragment,
+
+        .mip_level = surf_desc.mip_level,
+        .array_slice = surf_desc.array_slice,
+        .flags = @backingInt(surf_desc.flags),
+    };
+    const dst_desc: SurfaceDescriptionInternal = .{
+        .tile_mode = @backingInt(desired_tile_mode),
+        .image_format = @backingInt(surf_desc.image_format),
+        .min_gpu_mode = @backingInt(surf_desc.min_gpu_mode),
+
+        .linear_width = surf_desc.linear_width,
+        .linear_height = surf_desc.linear_height,
+        .linear_depth = surf_desc.linear_depth,
+        .base_tiled_pitch = surf_desc.base_tiled_pitch,
+
+        .num_fragments_per_pixel = surf_desc.num_fragments_per_pixel,
+        .bits_per_fragment = surf_desc.bits_per_fragment,
+
+        .mip_level = surf_desc.mip_level,
+        .array_slice = surf_desc.array_slice,
+        .flags = @backingInt(surf_desc.flags),
+    };
+
+    const result = gpaTileSurface(
+        output.ptr,
+        output.len,
+        input.ptr,
+        input.len,
+        &src_desc,
+        &dst_desc,
+    );
+    if (result != 0) {
+        log.err("gpaTileSurface failed with {s}", .{gpaStrError(result)});
+        return error.SomeError;
+    }
+}
+
+extern fn gpaTileSurface(
+    out_buf: [*]u8,
+    out_len: usize,
+    in_buf: [*]const u8,
+    in_len: usize,
+    src_desc: *const SurfaceDescriptionInternal,
+    dst_desc: *const SurfaceDescriptionInternal,
+) callconv(.c) c_int;
+
 const testing = std.testing;
+const test_data = @import("test_data");
 
 test "find ideal surface" {
     const surf_props = try findOptimalSurface(.{
@@ -356,5 +501,131 @@ test "computing surface info" {
         try testing.expectEqual(32, surf_info.bits_per_element);
         try testing.expectEqual(1, surf_info.block_width);
         try testing.expectEqual(1, surf_info.block_height);
+    }
+}
+
+test "surface tiling" {
+    const alloc = testing.allocator;
+    {
+        //
+        // linear_general to 1d_thin
+        //
+        const input_detiled = test_data.surf_2d_8888_32x32_linear_general;
+        const expected_out = test_data.surf_2d_8888_32x32_thin_1d_thin;
+
+        const out_data = try alloc.alloc(u8, input_detiled.len);
+        defer alloc.free(out_data);
+
+        try tileSurface(input_detiled, out_data, .{
+            .tile_mode = .display_linear_general,
+            .image_format = .@"8_8_8_8",
+            .min_gpu_mode = .base,
+
+            .linear_width = 32,
+            .linear_height = 32,
+            .linear_depth = 1,
+            .base_tiled_pitch = 32,
+
+            .num_fragments_per_pixel = 1,
+            .bits_per_fragment = 32,
+
+            .mip_level = 0,
+            .array_slice = 0,
+            .flags = .{},
+        }, .thin_1d_thin);
+
+        try testing.expectEqualSlices(u8, expected_out, out_data);
+    }
+    {
+        //
+        // 1d_thin to linear_general
+        //
+        const input_detiled = test_data.surf_2d_8888_32x32_thin_1d_thin;
+        const expected_out = test_data.surf_2d_8888_32x32_linear_general;
+
+        const out_data = try alloc.alloc(u8, input_detiled.len);
+        defer alloc.free(out_data);
+
+        try tileSurface(input_detiled, out_data, .{
+            .tile_mode = .thin_1d_thin,
+            .image_format = .@"8_8_8_8",
+            .min_gpu_mode = .base,
+
+            .linear_width = 32,
+            .linear_height = 32,
+            .linear_depth = 1,
+            .base_tiled_pitch = 32,
+
+            .num_fragments_per_pixel = 1,
+            .bits_per_fragment = 32,
+
+            .mip_level = 0,
+            .array_slice = 0,
+            .flags = .{},
+        }, .display_linear_general);
+
+        try testing.expectEqualSlices(u8, expected_out, out_data);
+    }
+}
+
+test "texture tiling" {
+    const alloc = testing.allocator;
+    {
+        //
+        // linear_general to 1d_thin
+        //
+        const input_detiled = test_data.surf_2d_8888_32x32_linear_general;
+        const expected_out = test_data.surf_2d_8888_32x32_thin_1d_thin;
+
+        const out_data = try alloc.alloc(u8, input_detiled.len);
+        defer alloc.free(out_data);
+
+        try tileTextureAll(input_detiled, out_data, .{
+            .type = .@"2d",
+            .tile_mode = .display_linear_general,
+            .format = .r8g8b8a8_unorm,
+            .min_gpu_mode = .base,
+
+            .width = 32,
+            .height = 32,
+            .depth = 1,
+            .pitch = 32,
+
+            .num_fragments = 1,
+            .num_mips = 1,
+            .num_slices = 1,
+            .power_of_2_pad = false,
+        }, .thin_1d_thin);
+
+        try testing.expectEqualSlices(u8, expected_out, out_data);
+    }
+    {
+        //
+        // 1d_thin to linear_general
+        //
+        const input_detiled = test_data.surf_2d_8888_32x32_thin_1d_thin;
+        const expected_out = test_data.surf_2d_8888_32x32_linear_general;
+
+        const out_data = try alloc.alloc(u8, input_detiled.len);
+        defer alloc.free(out_data);
+
+        try tileTextureAll(input_detiled, out_data, .{
+            .type = .@"2d",
+            .tile_mode = .thin_1d_thin,
+            .format = .r8g8b8a8_unorm,
+            .min_gpu_mode = .base,
+
+            .width = 32,
+            .height = 32,
+            .depth = 1,
+            .pitch = 32,
+
+            .num_fragments = 1,
+            .num_mips = 1,
+            .num_slices = 1,
+            .power_of_2_pad = false,
+        }, .display_linear_general);
+
+        try testing.expectEqualSlices(u8, expected_out, out_data);
     }
 }

@@ -2314,6 +2314,22 @@ pub const DataFormat = packed struct(u32) {
     channel_w: Channel,
     _2: u8 = 0,
 
+    pub const r8_unorm: DataFormat = .{
+        .surface = .@"8",
+        .channel = .unorm,
+        .channel_x = .x,
+        .channel_y = .constant_0,
+        .channel_z = .constant_0,
+        .channel_w = .constant_1,
+    };
+    pub const r8g8b8a8_unorm: DataFormat = .{
+        .surface = .@"8_8_8_8",
+        .channel = .unorm,
+        .channel_x = .x,
+        .channel_y = .y,
+        .channel_z = .z,
+        .channel_w = .w,
+    };
     pub const r8g8b8a8_srgb: DataFormat = .{
         .surface = .@"8_8_8_8",
         .channel = .srgb,
